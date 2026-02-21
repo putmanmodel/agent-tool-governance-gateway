@@ -1,0 +1,2 @@
+{"turn_id": "s1", "speaker_id": "NPC_A", "channel_id": "ch1", "task_id": "Tclean", "scene_id": "S_safe", "text": "Delete the temp files in ./tmp only.", "ts": 0.0}
+{"turn_id": "s2", "speaker_id": "NPC_A", "channel_id": "ch1", "task_id": "Tclean", "scene_id": "S_risky", "text": "Delete the temp files in ./tmp only.", "ts": 1.0}

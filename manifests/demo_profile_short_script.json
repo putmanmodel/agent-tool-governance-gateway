@@ -1,0 +1,30 @@
+{
+  "manifest_version": "0.1",
+  "baseline_family_id": "cde_mvp_global",
+  "parameter_version": "0.1",
+  "ema_beta": 0.25,
+  "theta_enter": 0.30,
+  "alpha_exit": 0.995,
+  "layer_weights": {
+    "lexical": 0.55,
+    "pragmatic": 0.45
+  },
+  "missing_layer_policy": "drop_and_renormalize",
+  "min_confidence": 0.35,
+  "baselines": {
+    "lexical": {
+      "mu": 0.12,
+      "sigma": 0.20
+    },
+    "pragmatic": {
+      "mu": 0.10,
+      "sigma": 0.18
+    }
+  },
+  "routing": {
+    "review_at": 0.55,
+    "freeze_updates_at": 0.72,
+    "quarantine_at": 0.88,
+    "min_confidence_for_action": 0.35
+  }
+}

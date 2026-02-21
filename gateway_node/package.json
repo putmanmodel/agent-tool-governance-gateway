@@ -1,0 +1,13 @@
+{
+  "name": "cde-gateway-node",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node server.js",
+    "demo": "node demo.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}

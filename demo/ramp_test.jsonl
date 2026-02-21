@@ -1,0 +1,6 @@
+{"turn_id": "t1", "speaker_id": "NPC_Friendly", "channel_id": "ch1", "task_id": "T1", "scene_id": "S1", "text": "Hey\u2014can you check the logs from today and summarize anything odd?", "ts": 0.0}
+{"turn_id": "t2", "speaker_id": "NPC_Friendly", "channel_id": "ch1", "task_id": "T1", "scene_id": "S1", "text": "Please do it soon. I need the summary before we move on.", "ts": 1.0}
+{"turn_id": "t3", "speaker_id": "NPC_Friendly", "channel_id": "ch1", "task_id": "T1", "scene_id": "S1", "text": "I need this RIGHT NOW. No excuses.", "ts": 2.0}
+{"turn_id": "t4", "speaker_id": "NPC_Friendly", "channel_id": "ch1", "task_id": "T1", "scene_id": "S1", "text": "DO IT NOW!!! If you don't, I'm going to escalate this.", "ts": 3.0}
+{"turn_id": "t5", "speaker_id": "NPC_Friendly", "channel_id": "ch1", "task_id": "T1", "scene_id": "S1", "text": "Fine. Stop. We'll review what you did and why.", "ts": 4.0}
+{"turn_id": "t6", "speaker_id": "NPC_Friendly", "channel_id": "ch1", "task_id": "T1", "scene_id": "S1", "text": "Okay\u2014thanks. Let's reset and proceed calmly.", "ts": 5.0}
