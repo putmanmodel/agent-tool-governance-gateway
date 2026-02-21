@@ -58,3 +58,11 @@ Each entry includes allow/blocked + reason, `cde_gate`, `tool_floor_gate`, `effe
 
 - Tool actions are **simulated** in this demo (no real file deletion).
 - The gateway has a subprocess fallback path, but the demo uses the warm FastAPI service by default.
+
+## License
+
+CC BY-NC 4.0 — see `../LICENSE`.
+
+## Contact
+
+Stephen A. Putman — putmanmodel@pm.me
