@@ -1,7 +1,6 @@
 # CDE MVP (Python-first) — Paper-faithful event formation + audit artifacts
 
 This is a minimal, runnable reference implementation to start the **CDE Gateway hybrid**:
-- **Tonight (this repo):** Python core engine that turns constraint-accessible turn packets into deviation **events** using:
   - layered extractors (lexical + pragmatic)
   - stratified baselines (global / per-agent / per-task / per-scene)
   - weighted aggregate severity + confidence
