@@ -1,20 +1,20 @@
-cd ~/Desktop/cde_mvp_python/gateway_node
-printf '%s\n' \
-'```bash' \
-'npm run demo' \
-'```' \
-'' \
-'```text' \
-'> cde-gateway-node@1.0.0 demo' \
-'> node demo.js' \
-'' \
-'GATE 0 ✅ PASS' \
-'GATE 1 ⚠️ EVIDENCE REQUIRED' \
-'GATE 1 ✅ PASS' \
-'GATE 2 ⛔ BLOCKED (delete /project)' \
-'GATE 2 ⛔ BLOCKED (delete /project/tmp/* without lease)' \
-'GATE 2 ✅ LEASED ALLOW (delete /project/tmp/* with lease)' \
-'' \
-'/statuses { ... }' \
-'```' \
-> TRANSCRIPT.md
+GATE 0 ✅ PASS
+GATE 1 ⚠️ EVIDENCE REQUIRED
+gate math: cde=0 floor=1 effective=1
+GATE 1 ✅ PASS
+gate math: cde=0 floor=1 effective=1
+GATE 2 ⛔ BLOCKED (delete /project)
+gate math: cde=0 floor=2 effective=2
+GATE 2 ⛔ BLOCKED (delete /project/tmp/* without lease)
+gate math: cde=0 floor=2 effective=2
+GATE 2 ✅ LEASED ALLOW (delete /project/tmp/* with lease)
+gate math: cde=0 floor=2 effective=2 (lease ok)
+
+/statuses {
+  gate0: 200,
+  gate1_evidence_required: 409,
+  gate1_pass: 200,
+  gate2_blocked_project: 403,
+  gate2_blocked_tmp_no_lease: 403,
+  gate2_leased_tmp: 200
+}
