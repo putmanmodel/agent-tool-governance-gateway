@@ -1,17 +1,12 @@
-# Thin Node Gateway — contract notes
+# Gateway boundary
 
-The gateway sits between a planner (or agent) and external tools.
+CDE owns deterministic deviation evaluation and Gate 0/1/2 assignment. It emits
+`governance_signal` with PASS / EVIDENCE REQUIRED / LEASE REQUIRED semantics.
 
-It should:
-1) accept tool-call requests (or turn packets) over HTTP
-2) call CDE to obtain:
-   - severity + state (enter/active/exit)
-   - rationale artifacts (evidence + provenance)
-3) enforce outcomes at the gateway layer:
-   - allow / require evidence / block / quarantine / require approval / capability lease
+The warm FastAPI service preserves per-session evaluation state. The Node gateway
+consumes its signal, applies separate tool-policy floors, and enforces evidence
+and external lease requirements. Demo lease issuance and validation live in
+`gateway_node/demo_authority.js`; CDE never grants authority.
 
-Implementation options:
-- Subprocess mode: spawn Python CLI to evaluate a turn
-- Warm service mode: call a stateful FastAPI CDE service for per-session continuity
-
-This repo includes both patterns; see `gateway_node/` for the runnable demo.
+The CLI is a standalone single-turn evaluator, not an automatic gateway fallback.
+Kingpin is not integrated. See [ARCHITECTURE.md](ARCHITECTURE.md).

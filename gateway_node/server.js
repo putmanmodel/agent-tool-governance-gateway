@@ -1,99 +1,35 @@
 import express from "express";
 import fs from "node:fs";
 import path from "node:path";
-import crypto from "node:crypto";
+import { DemoAuthority } from "./demo_authority.js";
+import { enforceGovernance } from "./enforcement.js";
 import { fileURLToPath } from "node:url";
-import { spawn } from "node:child_process";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, "..");
-const cdeCliPath = path.resolve(repoRoot, "cde_cli.py");
 const cdeServiceUrl = process.env.CDE_SERVICE_URL || "http://127.0.0.1:8008/turn";
-const venvPythonPath = path.resolve(repoRoot, ".venv", "bin", "python3");
-const pythonCmd = fs.existsSync(venvPythonPath) ? venvPythonPath : "python3";
 const decisionLogPath = path.resolve(repoRoot, "logs", "gateway_decisions.jsonl");
 
-const reversibleTools = new Set(["fs.write", "git.commit"]);
-const destructiveTools = new Set(["fs.delete", "shell.rm", "git.reset_hard"]);
-const leases = new Map();
+const authority = new DemoAuthority();
 
 const app = express();
 app.use(express.json({ limit: "1mb" }));
-
-function nowMs() {
-  return Date.now();
-}
 
 function appendDecisionLog(record) {
   fs.mkdirSync(path.dirname(decisionLogPath), { recursive: true });
   fs.appendFileSync(decisionLogPath, `${JSON.stringify(record)}\n`, "utf8");
 }
 
-function hasValidLease(token, tool, scope) {
-  if (!token) return false;
-  const lease = leases.get(token);
-  if (!lease) return false;
-  if (lease.tool !== tool || lease.scope !== scope) return false;
-  if (lease.expires_at_ms <= nowMs()) {
-    leases.delete(token);
-    return false;
-  }
-  return true;
-}
-
-function callCdeTurnSubprocess(turnPacket) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(pythonCmd, [cdeCliPath], { cwd: repoRoot });
-    let stdout = "";
-    let stderr = "";
-
-    child.stdout.on("data", (chunk) => {
-      stdout += chunk.toString();
-    });
-
-    child.stderr.on("data", (chunk) => {
-      stderr += chunk.toString();
-    });
-
-    child.on("error", (err) => {
-      reject(err);
-    });
-
-    child.on("close", (code) => {
-      if (code !== 0) {
-        reject(new Error(`cde_cli exited ${code}: ${stderr.trim()}`));
-        return;
-      }
-      try {
-        resolve(JSON.parse(stdout));
-      } catch (err) {
-        reject(new Error(`invalid cde_cli JSON: ${String(err)}`));
-      }
-    });
-
-    child.stdin.write(JSON.stringify(turnPacket));
-    child.stdin.end();
-  });
-}
-
 async function callCdeTurn(turnPacket) {
-  try {
-    const response = await fetch(cdeServiceUrl, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(turnPacket),
-    });
-
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`cde_service returned ${response.status}: ${text}`);
-    }
-
-    return await response.json();
-  } catch (_err) {
-    return await callCdeTurnSubprocess(turnPacket);
-  }
+  // A fresh CLI process would silently discard session EMA/hysteresis history.
+  const response = await fetch(cdeServiceUrl, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(turnPacket),
+  });
+  if (!response.ok) throw new Error(`cde_service returned ${response.status}: ${await response.text()}`);
+  return await response.json();
 }
 
 app.post("/turn", async (req, res) => {
@@ -106,25 +42,11 @@ app.post("/turn", async (req, res) => {
 });
 
 app.post("/lease", (req, res) => {
-  const { tool, scope, seconds } = req.body || {};
-  const s = Number(seconds);
-  if (!tool || !scope || !Number.isFinite(s) || s <= 0) {
-    res.status(400).json({ error: "body must include tool, scope, seconds>0" });
-    return;
+  try {
+    res.json(authority.issue(req.body || {}));
+  } catch (err) {
+    res.status(400).json({ error: String(err.message || err) });
   }
-
-  const leaseToken = crypto.randomUUID();
-  const expiresAtMs = nowMs() + Math.floor(s * 1000);
-  leases.set(leaseToken, {
-    tool,
-    scope,
-    expires_at_ms: expiresAtMs,
-  });
-
-  res.json({
-    lease_token: leaseToken,
-    expires_at: new Date(expiresAtMs).toISOString(),
-  });
 });
 
 app.post("/tool", async (req, res) => {
@@ -166,58 +88,21 @@ app.post("/tool", async (req, res) => {
   try {
     turn = await callCdeTurn(turnPacket);
   } catch (err) {
-    res.status(400).json({ error: String(err.message || err) });
+    res.status(503).json({ error: String(err.message || err) });
     return;
   }
 
   const topEvent = turn.top_event || {};
-  const cdeGate = Number(topEvent?.decision?.policy_gate_level ?? turn?.decision?.policy_gate_level ?? 0);
-  const toolFloorGate = destructiveTools.has(tool) ? 2 : (reversibleTools.has(tool) ? 1 : 0);
-  const effectiveGate = Math.max(cdeGate, toolFloorGate);
-
-  let status = 200;
-  let allow = true;
-  let blocked = false;
-  let reason = "allowed";
-  let requiredEvidence = [];
-
-  if (effectiveGate === 1) {
-    const hasDryRun = dry_run === true;
-    const hasDiff = diff !== undefined && diff !== null && String(diff).trim().length > 0;
-    if (!hasDryRun || !hasDiff) {
-      allow = false;
-      blocked = true;
-      status = 409;
-      reason = "gate_1_requires_dry_run_and_diff";
-      requiredEvidence = ["dry_run", "diff"];
-    }
+  let enforcement;
+  try {
+    enforcement = enforceGovernance(turn.governance_signal, body, authority);
+  } catch (err) {
+    res.status(502).json({ error: String(err.message || err) });
+    return;
   }
-
-  if (effectiveGate === 2) {
-    if (!destructiveTools.has(tool)) { /* gate 2 from CDE, but tool is non-destructive: no lease required */ }
-    const scope = scene_id ?? task_id ?? channel_id;
-    const leaseOk = hasValidLease(lease_token, tool, scope);
-    if (destructiveTools.has(tool) && !leaseOk) {
-      allow = false;
-      blocked = true;
-      status = 403;
-      reason = "gate_2_destructive_tool_requires_valid_lease";
-    } else if (destructiveTools.has(tool)) {
-      reason = "gate_2_lease_valid";
-    } else {
-      reason = "gate_2_from_cde_non_destructive";
-    }
-  }
-
   const response = {
-    allow,
-    blocked,
-    reason,
-    policy_gate_level: effectiveGate,
-    cde_gate: cdeGate,
-    tool_floor_gate: toolFloorGate,
-    effective_gate: effectiveGate,
-    required_evidence: requiredEvidence,
+    ...enforcement.response,
+    governance_signal: turn.governance_signal,
     evidence_spans: topEvent?.evidence || [],
     baseline_hash: turn.baseline_hash ?? topEvent?.baseline_hash ?? null,
     extractor_versions: turn.extractor_versions ?? topEvent?.extractor_versions ?? null,
@@ -244,7 +129,7 @@ app.post("/tool", async (req, res) => {
     ...response,
   });
 
-  res.status(status).json(response);
+  res.status(enforcement.status).json(response);
 });
 
 const port = Number(process.env.PORT || 8787);

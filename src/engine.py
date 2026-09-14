@@ -9,7 +9,8 @@ from .baseline.retrieve import retrieve_manifest
 from .compute.deviation import compute_deviation_vector, aggregate_severity, aggregate_confidence
 from .event.ema_hysteresis import EMAHysteresis
 from .rationale.build import collect_evidence, dominant_layers
-from .routing.route import route
+from .routing.route import route, evaluate_governance
+from .types.governance_signal import DeviationSummary
 
 class CDEEngine:
     def __init__(self, repo_root: str):
@@ -45,7 +46,7 @@ class CDEEngine:
             severity = aggregate_severity(manifest, dvec)
             confidence = aggregate_confidence(manifest, conf_by_layer)
 
-            # enforce manifest minimum confidence policy (for gating actions; still log severity)
+            # Retain per-scope persistence; confidence policy is evaluated by routing.
             machine = self._machine_for(scope_key, manifest.ema_beta, manifest.theta_enter, manifest.alpha_exit)
             st = machine.step(scope_key, severity)
 
@@ -71,6 +72,14 @@ class CDEEngine:
                 extractor_versions=extractor_versions,
                 evidence=evidence,
                 decision=decision,
+                governance_signal=evaluate_governance(
+                    scope_key,
+                    DeviationSummary(
+                        severity=severity, ema_severity=st.ema, confidence=confidence,
+                        active=st.active, enter=st.enter, exit=st.exit, vector=dvec,
+                    ),
+                    manifest.routing or {},
+                ),
                 turn_id=packet.turn_id,
                 speaker_id=packet.speaker_id,
                 channel_id=packet.channel_id,

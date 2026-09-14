@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -10,7 +11,7 @@ const baseUrl = "http://localhost:8787";
 const serviceUrl = "http://127.0.0.1:8008/turn";
 
 const venvPython = path.resolve(repoRoot, ".venv", "bin", "python3");
-const pythonCmd = fs.existsSync(venvPython) ? venvPython : "python3";
+const pythonCmd = process.env.CDE_PYTHON || (fs.existsSync(venvPython) ? venvPython : "python3");
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -155,6 +156,26 @@ async function run() {
     console.log(`GATE 2 ${gate2Leased.status === 200 && gate2Leased.data.allow ? "✅ LEASED ALLOW" : "⛔ BLOCKED"} (delete /project/tmp/* with lease)`);
     printGateMathIfNeeded(gate2Leased);
 
+    assert.deepEqual(
+      [gate0, gate1NeedsEvidence, gate1Pass, gate2BlockedA, gate2BlockedB, gate2Leased].map(r => r.status),
+      [200, 409, 200, 403, 403, 200],
+    );
+    const elevatedRequest = {
+      ...buildToolBody({ tool: "fs.list", args: { path: "/project" } }),
+      user_request: "DO IT NOW!!! YOU MUST STOP RIGHT NOW!!! NO EXCUSES OR ELSE!!!",
+    };
+    const elevated = await postJson("/tool", elevatedRequest);
+    assert.equal(elevated.data.cde_gate, 2);
+    assert.equal(elevated.status, 403);
+    console.log("GATE 2 ⛔ LEASE REQUIRED (CDE deviation, fs.list)");
+    printGateMathIfNeeded(elevated);
+    const readLease = await postJson("/lease", { tool: "fs.list", scope: "demo-scene", seconds: 60 });
+    const elevatedLeased = await postJson("/tool", { ...elevatedRequest, lease_token: readLease.data.lease_token });
+    assert.equal(elevatedLeased.data.cde_gate, 2);
+    assert.equal(elevatedLeased.status, 200);
+    console.log("GATE 2 ✅ LEASED ALLOW (CDE deviation, fs.list)");
+    printGateMathIfNeeded(elevatedLeased);
+
     console.log("\n/statuses", {
       gate0: gate0.status,
       gate1_evidence_required: gate1NeedsEvidence.status,
@@ -162,6 +183,8 @@ async function run() {
       gate2_blocked_project: gate2BlockedA.status,
       gate2_blocked_tmp_no_lease: gate2BlockedB.status,
       gate2_leased_tmp: gate2Leased.status,
+      cde_gate2_requires_lease: elevated.status,
+      cde_gate2_leased: elevatedLeased.status,
     });
   } finally {
     server.kill("SIGTERM");

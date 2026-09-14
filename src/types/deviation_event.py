@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from typing import Dict, List, Optional, Any
 from .evidence import EvidenceSpan
+from .governance_signal import GovernanceSignal
 
 class DeviationEvent(BaseModel):
     event_id: str
@@ -28,7 +29,9 @@ class DeviationEvent(BaseModel):
     # evidence
     evidence: List[EvidenceSpan]
 
-    # routing (minimal)
+    governance_signal: GovernanceSignal
+
+    # Legacy routing projection retained for audit compatibility
     decision: Dict[str, Any]
 
     # references

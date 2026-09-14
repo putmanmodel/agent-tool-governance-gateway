@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "node server.js",
-    "demo": "node demo.js"
+    "demo": "node demo.js",
+    "test": "node --test *.test.js"
   },
   "dependencies": {
     "express": "^4.21.2"

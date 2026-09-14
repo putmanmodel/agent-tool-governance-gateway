@@ -1,11 +1,11 @@
 # CDE Gateway (Node) — Governed Tool Calls Demo
 
 This folder contains a thin **Node/Express gateway** that sits between an agent planner and external tools.
-It calls a warm **CDE (Constraint Deviation Engine)** service to compute a risk gate per request, then enforces hard outcomes:
+It calls a warm **CDE (Constraint Deviation Engine)** service to evaluate deviation and assign a governance gate per request, then enforces hard outcomes:
 
-- **Gate 0** → pass-through
-- **Gate 1** → evidence required (dry-run + diff)
-- **Gate 2** → destructive blocked unless a time-limited **capability lease** is provided
+- **Gate 0** → PASS
+- **Gate 1** → EVIDENCE REQUIRED (dry-run + diff)
+- **Gate 2** → LEASE REQUIRED for every tool, including CDE-triggered gates
 
 CDE is treated as governance middleware: tool use becomes a **governed event** with auditable artifacts (decision + evidence + provenance).
 
@@ -22,6 +22,9 @@ npm run demo
 The demo auto-starts a warm FastAPI CDE service on `127.0.0.1:8008` and the gateway on `localhost:8787`, runs a scripted sequence, prints the transcript, then shuts both down.
 
 ## Expected demo transcript
+
+The complete asserted run, including CDE-triggered Gate 2 on `fs.list`, is in [TRANSCRIPT.md](TRANSCRIPT.md).
+The original six outcomes remain:
 
 ```text
 GATE 0 ✅ PASS
@@ -57,7 +60,10 @@ Each entry includes allow/blocked + reason, `cde_gate`, `tool_floor_gate`, `effe
 ## Notes
 
 - Tool actions are **simulated** in this demo (no real file deletion).
-- The gateway has a subprocess fallback path, but the demo uses the warm FastAPI service by default.
+- The gateway requires the warm FastAPI service to preserve session history; no automatic stateless fallback.
+- Set `CDE_PYTHON` to your Python executable when running the demo if the project `.venv` is unavailable. Install both root requirements files first.
+- `enforcement.js` owns tool floors and allow/block; `demo_authority.js` separately issues and validates demo leases. CDE grants no authority.
+- See [the signal contract and architecture](../ARCHITECTURE.md).
 
 ## License
 

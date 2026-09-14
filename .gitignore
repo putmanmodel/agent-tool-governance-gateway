@@ -21,3 +21,6 @@ gateway_node/.env
 # Editor
 .vscode/
 .idea/
+
+# Task-local Python environment
+.venv-task/
