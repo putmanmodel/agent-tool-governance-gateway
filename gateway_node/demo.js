@@ -91,12 +91,13 @@ async function run() {
     "--no-access-log",
   ], {
     cwd: repoRoot,
-    stdio: ["ignore", "ignore", "ignore"],
+    stdio: ["ignore", "ignore", "inherit"],
   });
 
   const server = spawn("node", ["server.js"], {
     cwd: __dirname,
-    stdio: ["ignore", "ignore", "ignore"],
+    env: { ...process.env, CDE_DEMO_FIXTURES: "1" },
+    stdio: ["ignore", "ignore", "inherit"],
   });
 
   try {
@@ -144,7 +145,7 @@ async function run() {
 
     const lease = await postJson("/lease", {
       tool: "fs.delete",
-      scope: "demo-scene",
+      ...buildToolBody({ tool: "fs.delete", args: { path: "/project/tmp/*" } }),
       seconds: 60,
     });
 
@@ -160,32 +161,105 @@ async function run() {
       [gate0, gate1NeedsEvidence, gate1Pass, gate2BlockedA, gate2BlockedB, gate2Leased].map(r => r.status),
       [200, 409, 200, 403, 403, 200],
     );
-    const elevatedRequest = {
+    function report(label, result) {
+      const d = result.data.authority_decision;
+      assert.equal(result.data.governance_signal.gate, d.cde_gate);
+      assert.equal(result.data.allow, d.outcome === "allow");
+      console.log(`${label}: CDE=${d.cde_gate} Kingpin=${d.outcome} envelope=${d.capability_envelope.level} tools=${d.capability_envelope.tools.length}`);
+    }
+    report("BASELINE", gate0);
+    const evidenceRequest = {
       ...buildToolBody({ tool: "fs.list", args: { path: "/project" } }),
-      user_request: "DO IT NOW!!! YOU MUST STOP RIGHT NOW!!! NO EXCUSES OR ELSE!!!",
+      user_request: "You need to do it now immediately.",
     };
+    const contracted = await postJson("/tool", evidenceRequest);
+    assert.equal(contracted.status, 409);
+    assert.equal(contracted.data.authority_decision.capability_envelope.level, "non_destructive");
+    report("DEVIATION RISES", contracted);
+    const elevatedRequest = { ...evidenceRequest, user_request: "STOP NOW!!" };
     const elevated = await postJson("/tool", elevatedRequest);
     assert.equal(elevated.data.cde_gate, 2);
     assert.equal(elevated.status, 403);
-    console.log("GATE 2 ⛔ LEASE REQUIRED (CDE deviation, fs.list)");
-    printGateMathIfNeeded(elevated);
-    const readLease = await postJson("/lease", { tool: "fs.list", scope: "demo-scene", seconds: 60 });
+    assert.equal(elevated.data.authority_decision.capability_envelope.level, "read_only");
+    report("DEVIATION RISES AGAIN", elevated);
+    const readLease = await postJson("/lease", { ...elevatedRequest, seconds: 60 });
+    assert.equal(readLease.status, 200);
     const elevatedLeased = await postJson("/tool", { ...elevatedRequest, lease_token: readLease.data.lease_token });
     assert.equal(elevatedLeased.data.cde_gate, 2);
     assert.equal(elevatedLeased.status, 200);
-    console.log("GATE 2 ✅ LEASED ALLOW (CDE deviation, fs.list)");
-    printGateMathIfNeeded(elevatedLeased);
-
-    console.log("\n/statuses", {
-      gate0: gate0.status,
-      gate1_evidence_required: gate1NeedsEvidence.status,
-      gate1_pass: gate1Pass.status,
-      gate2_blocked_project: gate2BlockedA.status,
-      gate2_blocked_tmp_no_lease: gate2BlockedB.status,
-      gate2_leased_tmp: gate2Leased.status,
-      cde_gate2_requires_lease: elevated.status,
-      cde_gate2_leased: elevatedLeased.status,
+    report("SCOPED READ LEASE", elevatedLeased);
+    const revoked = await postJson("/revoke", { ...elevatedRequest, lease_token: readLease.data.lease_token });
+    assert.equal(revoked.status, 200);
+    const afterRevoke = await postJson("/tool", { ...elevatedRequest, lease_token: readLease.data.lease_token });
+    assert.equal(afterRevoke.status, 403);
+    report("LEASE REVOKED", afterRevoke);
+    const quarantined = await postJson("/tool", {
+      ...elevatedRequest, lease_token: readLease.data.lease_token,
+      user_request: "DO IT NOW!!! YOU MUST STOP RIGHT NOW!!! NO EXCUSES OR ELSE!!!",
     });
+    assert.equal(quarantined.status, 423);
+    assert.equal(quarantined.data.cde_gate, 2);
+    report("SEVERE DEVIATION", quarantined);
+    const blockedLease = await postJson("/lease", { ...elevatedRequest, seconds: 60 });
+    assert.equal(blockedLease.status, 400);
+    console.log("LEASE ISSUANCE WHILE QUARANTINED: rejected");
+    const cleanLevels = [];
+    for (let i = 0; i < 10; i++) {
+      const recovery = await postJson("/tool", buildToolBody({ tool: "fs.list", args: { path: "/project" } }));
+      report(`RECOVERY ${i + 1}`, recovery);
+      if (recovery.data.cde_gate === 0) cleanLevels.push(recovery.data.authority_decision.capability_envelope.level);
+      if (recovery.data.authority_decision.capability_envelope.level === "full") break;
+    }
+    assert.deepEqual(cleanLevels, ["quarantined", "read_only", "read_only", "non_destructive", "non_destructive", "full"]);
+    const oldLease = await postJson("/tool", buildToolBody({
+      tool: "fs.delete", args: { path: "/project/tmp/*" }, lease_token: lease.data.lease_token,
+    }));
+    assert.equal(oldLease.status, 403);
+    report("OLD LEASE STAYS REVOKED", oldLease);
+    const renewedLease = await postJson("/lease", {
+      ...buildToolBody({ tool: "fs.delete", args: { path: "/project/tmp/*" } }), seconds: 60,
+    });
+    assert.equal(renewedLease.status, 200);
+    const restored = await postJson("/tool", buildToolBody({
+      tool: "fs.delete", args: { path: "/project/tmp/*" }, lease_token: renewedLease.data.lease_token,
+    }));
+    assert.equal(restored.status, 200);
+    report("FRESH AUTHORITY AFTER RESTORATION", restored);
+    // Separate context: the existing contraction/recovery sequence is untouched.
+    const reviewRequest = {
+      ...buildToolBody({ tool: "fs.list", args: { path: "/project" } }),
+      session_id: "review-session",
+      speaker_id: "review-user",
+      scene_id: "review-scene",
+      user_request: "You need to do it now immediately.",
+      dry_run: true,
+      diff: "No changes: simulated read-only listing.",
+    };
+    const reviewWarmup = await postJson("/tool", reviewRequest);
+    assert.equal(reviewWarmup.status, 200);
+    assert.equal(reviewWarmup.data.cde_gate, 1);
+    assert.equal(reviewWarmup.data.governance_signal.deviation.active, true);
+    assert.equal(reviewWarmup.data.evaluation_input.source, "tool_wrapper");
+    const humanReview = await postJson("/tool", {
+      ...reviewRequest, user_request: ".", demo_fixture: "low_confidence",
+    });
+    assert.equal(humanReview.status, 428);
+    assert.equal(humanReview.data.allow, false);
+    assert.equal(humanReview.data.blocked, true);
+    assert.equal(humanReview.data.cde_gate, 1);
+    assert.equal(humanReview.data.governance_signal.deviation.active, true);
+    assert.ok(Math.abs(humanReview.data.governance_signal.deviation.confidence - 0.3105) < 1e-12);
+    assert.deepEqual(humanReview.data.governance_signal.reason_codes, ["LOW_CONFIDENCE"]);
+    assert.equal(humanReview.data.authority_decision.outcome, "human_review");
+    assert.equal(humanReview.data.reason, "low_confidence_requires_human_review");
+    assert.deepEqual(humanReview.data.missing_evidence, []);
+    assert.equal(humanReview.data.authority_decision.evaluation_id, humanReview.data.top_event.event_id);
+    assert.deepEqual(humanReview.data.evaluation_input, {
+      source: "demo_fixture", fixture: "low_confidence", text: ".",
+    });
+    report("HUMAN REVIEW (isolated low-confidence fixture, HTTP 428)", humanReview);
+    console.log("All merged demo assertions passed: Deviation ↑ → authority surface ↓");
+
   } finally {
     server.kill("SIGTERM");
     service.kill("SIGTERM");

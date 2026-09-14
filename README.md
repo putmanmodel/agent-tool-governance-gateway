@@ -1,60 +1,80 @@
-# Constraint Deviation Engine (CDE) — Gateway Demo
+# CDE + Kingpin — Runtime Governance Demo
 
-Runnable reference implementation of **Constraint Deviation Engine (CDE)** as governance middleware for tool-using agents.
+`tool request → CDE evaluates deviation → gate assignment → Kingpin evaluates authority → gateway enforces`
 
-This repo includes:
-- **Python CDE core**: computes deviation events from constraint-accessible turn packets (layered extractors, stratified baselines, EMA persistence + hysteresis, auditable rationale artifacts).
-- **Warm CDE service (FastAPI)**: stateful `/turn` endpoint with per-`session_id` engine instances.
-- **Node/Express gateway**: enforces hard outcomes for simulated tool calls using explicit gate math:
-  - **Gate 0** — PASS
-  - **Gate 1** — EVIDENCE REQUIRED (dry-run + diff)
-  - **Gate 2** — LEASE REQUIRED (including gates triggered by CDE deviation)
+**Deviation ↑ → authority surface ↓**
 
-CDE emits a versioned governance signal and never grants authority. Gateway enforcement
-and the demo lease provider are separate modules; Kingpin is not integrated.
-See [architecture and signal contract](ARCHITECTURE.md) for the component map and compatibility details.
+The demo contracts and restores eligible tool capabilities:
 
-## Quickstart
+**7 → 4 → 2 → 0 → 2 → 4 → 7**
 
-Run the full gateway demo (starts FastAPI + Node, prints a transcript, then shuts both down):
+Full → non-destructive → read-only → quarantined → read-only → non-destructive → full.
+Restoration requires two consecutive inactive Gate 0 evaluations per step; revoked
+leases stay revoked and must be issued afresh where required.
+
+## Responsibilities
+
+| Layer | Owns |
+| --- | --- |
+| **CDE** | Deterministic deviation evaluation, confidence, EMA/hysteresis, and Gate 0/1/2 assignment. Emits a versioned governance signal with evidence/lease requirements and audit provenance. |
+| **Kingpin** | Capability envelope, scoped leases, revocation, allow/constrain/deny/quarantine/human review, and deterministic restoration. Consumes CDE's signal and returns an authority decision. |
+| **Gateway** | Enforcement only: applies Kingpin's decision to the simulated tool request. Handles HTTP orchestration and audit logging, without substantive authority policy. |
+
+- **Gate 0 — PASS**
+- **Gate 1 — EVIDENCE REQUIRED** (dry-run + diff)
+- **Gate 2 — LEASE REQUIRED**
+
+**CDE can require authority but cannot grant it.**
+
+Kingpin also applies a minimum authority floor based on tool criticality:
+write/commit operations require evidence, and destructive tools require a scoped
+lease even at CDE Gate 0. Non-deviant behavior does not automatically authorize
+destructive tools; a lease cannot expand a contracted capability envelope.
+
+## Run the merged demo
+
+From the repository root:
 
 ```bash
-cd gateway_node
-npm install
-# Install requirements.txt and requirements_gateway.txt in your Python environment first.
-npm run demo
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt -r requirements_gateway.txt
+npm --prefix gateway_node install
+npm --prefix gateway_node run demo
 ```
 
-Demo details and transcript:
-- `gateway_node/README.md`
+The script starts the warm FastAPI CDE service and Node gateway, asserts the
+outcomes, prints the transcript, and stops both. It includes scoped authority,
+revocation, quarantine, staged recovery, and an isolated **HUMAN REVIEW (HTTP 428)**
+fixture. All tools are simulated; authority state is in memory and control-plane
+endpoints are demo-only. Set `CDE_PYTHON` to select another Python environment.
 
-## Python core (optional)
+See the [verified transcript](gateway_node/TRANSCRIPT.md),
+[demo details](gateway_node/README.md), and
+[architecture and contracts](ARCHITECTURE.md).
 
-Run the standalone Python engine demo:
+## Standalone CDE history
 
-```bash
-python3 -m venv .venv && source .venv/bin/activate
-python3 -m pip install -r requirements.txt
-python3 run_demo.py
-```
+This repository began as the standalone Python CDE runtime-governance demo.
+**`cde-pre-kingpin-v0.2` is the pre-integration checkpoint.** The merged demo retains
+CDE's gate semantics, deviation behavior, and 32-event regression baseline.
+Kingpin is a separate local authority module; this implementation does not draw
+from CDE Lite or other CDE runtimes.
 
-Outputs:
-- `logs/cde_audit.jsonl`
-- `logs/last_run_summary.json`
+The standalone engine remains runnable with `python run_demo.py`, producing
+`logs/cde_audit.jsonl` and `logs/last_run_summary.json`.
 
 ## Key files
 
-- `src/engine.py` — CDE core engine
-- `manifests/*.json` — baselines + thresholds
-- `cde_service.py` — warm FastAPI CDE service (session-aware)
-- `gateway_node/server.js` — HTTP orchestration and audit
-- `gateway_node/enforcement.js` — tool floors and evidence/authority enforcement
-- `gateway_node/demo_authority.js` — demo-only lease provider
-- `gateway_node/demo.js` — scripted transcript runner
+- `src/engine.py` and `manifests/` — CDE evaluation and baseline configuration
+- `cde_service.py` — warm, session-aware CDE service
+- `gateway_node/kingpin/authority.js` — authority policy and state
+- `gateway_node/enforcement.js` — mechanical enforcement
+- `gateway_node/server.js` and `gateway_node/demo.js` — HTTP flow and asserted demo
 
 ## License
 
-CC BY-NC 4.0 — see `LICENSE`.
+CC BY-NC 4.0 — see [LICENSE](LICENSE).
 
 ## Contact
 
