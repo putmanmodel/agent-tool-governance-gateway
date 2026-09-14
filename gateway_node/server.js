@@ -1,8 +1,8 @@
 import express from "express";
 import fs from "node:fs";
 import path from "node:path";
-import { DemoAuthority } from "./demo_authority.js";
-import { enforceGovernance } from "./enforcement.js";
+import { KingpinAuthority } from "./kingpin/authority.js";
+import { enforceAuthorityDecision } from "./enforcement.js";
 import { fileURLToPath } from "node:url";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -11,10 +11,29 @@ const repoRoot = path.resolve(__dirname, "..");
 const cdeServiceUrl = process.env.CDE_SERVICE_URL || "http://127.0.0.1:8008/turn";
 const decisionLogPath = path.resolve(repoRoot, "logs", "gateway_decisions.jsonl");
 
-const authority = new DemoAuthority();
+const authority = new KingpinAuthority();
 
 const app = express();
 app.use(express.json({ limit: "1mb" }));
+// Serialize this in-memory demo's evaluation → authority → enforcement sequence.
+// A lease/revocation cannot interleave between an authority decision and its use.
+let pending = Promise.resolve();
+function serialized(handler) {
+  return async (req, res) => {
+    const previous = pending;
+    let release;
+    pending = new Promise(resolve => { release = resolve; });
+    await previous;
+    try {
+      await handler(req, res);
+    } catch (err) {
+      if (!res.headersSent) res.status(500).json({ error: String(err.message || err) });
+    } finally {
+      // Do not release on client disconnect while evaluation is still running.
+      release();
+    }
+  };
+}
 
 function appendDecisionLog(record) {
   fs.mkdirSync(path.dirname(decisionLogPath), { recursive: true });
@@ -32,24 +51,37 @@ async function callCdeTurn(turnPacket) {
   return await response.json();
 }
 
-app.post("/turn", async (req, res) => {
+app.post("/turn", serialized(async (req, res) => {
   try {
     const result = await callCdeTurn(req.body);
     res.json(result);
   } catch (err) {
     res.status(400).json({ error: String(err.message || err) });
   }
-});
+}));
 
-app.post("/lease", (req, res) => {
+app.post("/lease", serialized((req, res) => {
   try {
-    res.json(authority.issue(req.body || {}));
+    const lease = authority.issue(req.body || {});
+    appendDecisionLog({ ts: new Date().toISOString(), endpoint: "/lease", issuer: "kingpin",
+      context: lease.context, tool: req.body.tool, expires_at: lease.expires_at, lease_id: lease.lease_id });
+    res.json(lease);
   } catch (err) {
     res.status(400).json({ error: String(err.message || err) });
   }
-});
+}));
 
-app.post("/tool", async (req, res) => {
+app.post("/revoke", serialized((req, res) => {
+  try {
+    const result = authority.revoke(req.body || {});
+    appendDecisionLog({ ts: new Date().toISOString(), endpoint: "/revoke", ...result });
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: String(err.message || err) });
+  }
+}));
+
+app.post("/tool", serialized(async (req, res) => {
   const body = req.body || {};
   const {
     tool,
@@ -95,7 +127,8 @@ app.post("/tool", async (req, res) => {
   const topEvent = turn.top_event || {};
   let enforcement;
   try {
-    enforcement = enforceGovernance(turn.governance_signal, body, authority);
+    const authorityDecision = authority.decide(turn.governance_signal, body, topEvent.event_id);
+    enforcement = enforceAuthorityDecision(authorityDecision);
   } catch (err) {
     res.status(502).json({ error: String(err.message || err) });
     return;
@@ -130,12 +163,12 @@ app.post("/tool", async (req, res) => {
   });
 
   res.status(enforcement.status).json(response);
-});
+}));
 
 const port = Number(process.env.PORT || 8787);
 
 export function startServer() {
-  return app.listen(port, () => {
+  return app.listen(port, "127.0.0.1", () => {
     console.log(`gateway_node listening on http://localhost:${port}`);
   });
 }

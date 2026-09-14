@@ -5,13 +5,14 @@ Runnable reference implementation of **Constraint Deviation Engine (CDE)** as go
 This repo includes:
 - **Python CDE core**: computes deviation events from constraint-accessible turn packets (layered extractors, stratified baselines, EMA persistence + hysteresis, auditable rationale artifacts).
 - **Warm CDE service (FastAPI)**: stateful `/turn` endpoint with per-`session_id` engine instances.
-- **Node/Express gateway**: enforces hard outcomes for simulated tool calls using explicit gate math:
+- **Kingpin authority layer**: contracts capability envelopes, decides allow/constrain/deny/quarantine/human review, and owns leases, revocation and deterministic restoration.
+- **Node/Express gateway**: enforces Kingpin decisions for simulated tools. CDE semantics remain:
   - **Gate 0** — PASS
   - **Gate 1** — EVIDENCE REQUIRED (dry-run + diff)
   - **Gate 2** — LEASE REQUIRED (including gates triggered by CDE deviation)
 
-CDE emits a versioned governance signal and never grants authority. Gateway enforcement
-and the demo lease provider are separate modules; Kingpin is not integrated.
+CDE emits a versioned governance signal and never grants authority. Kingpin consumes that signal and
+returns a separate authority decision. The demo shows **Deviation ↑ → authority surface ↓**.
 See [architecture and signal contract](ARCHITECTURE.md) for the component map and compatibility details.
 
 ## Quickstart
@@ -48,8 +49,8 @@ Outputs:
 - `manifests/*.json` — baselines + thresholds
 - `cde_service.py` — warm FastAPI CDE service (session-aware)
 - `gateway_node/server.js` — HTTP orchestration and audit
-- `gateway_node/enforcement.js` — tool floors and evidence/authority enforcement
-- `gateway_node/demo_authority.js` — demo-only lease provider
+- `gateway_node/enforcement.js` — mechanical enforcement of Kingpin decisions
+- `gateway_node/kingpin/authority.js` — capability envelope, leases, revocation and recovery
 - `gateway_node/demo.js` — scripted transcript runner
 
 ## License

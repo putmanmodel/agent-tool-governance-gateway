@@ -1,74 +1,53 @@
-# CDE Gateway (Node) — Governed Tool Calls Demo
+# CDE + Kingpin governed tool demo
 
-This folder contains a thin **Node/Express gateway** that sits between an agent planner and external tools.
-It calls a warm **CDE (Constraint Deviation Engine)** service to evaluate deviation and assign a governance gate per request, then enforces hard outcomes:
+**Deviation ↑ → authority surface ↓**
 
-- **Gate 0** → PASS
-- **Gate 1** → EVIDENCE REQUIRED (dry-run + diff)
-- **Gate 2** → LEASE REQUIRED for every tool, including CDE-triggered gates
-
-CDE is treated as governance middleware: tool use becomes a **governed event** with auditable artifacts (decision + evidence + provenance).
-
-## Quickstart
-
-From the repo root:
-
-```bash
-cd gateway_node
-npm install
-npm run demo
-```
-
-The demo auto-starts a warm FastAPI CDE service on `127.0.0.1:8008` and the gateway on `localhost:8787`, runs a scripted sequence, prints the transcript, then shuts both down.
-
-## Expected demo transcript
-
-The complete asserted run, including CDE-triggered Gate 2 on `fs.list`, is in [TRANSCRIPT.md](TRANSCRIPT.md).
-The original six outcomes remain:
+The warm Python service emits an unchanged CDE v1.0 governance signal. Kingpin
+consumes it and owns authority decisions. The gateway enforces those decisions.
 
 ```text
-GATE 0 ✅ PASS
-GATE 1 ⚠️ EVIDENCE REQUIRED
-gate math: cde=0 floor=1 effective=1
-GATE 1 ✅ PASS
-gate math: cde=0 floor=1 effective=1
-GATE 2 ⛔ BLOCKED (delete /project)
-gate math: cde=0 floor=2 effective=2
-GATE 2 ⛔ BLOCKED (delete /project/tmp/* without lease)
-gate math: cde=0 floor=2 effective=2
-GATE 2 ✅ LEASED ALLOW (delete /project/tmp/* with lease)
-gate math: cde=0 floor=2 effective=2 (lease ok)
-
-/statuses {
-  gate0: 200,
-  gate1_evidence_required: 409,
-  gate1_pass: 200,
-  gate2_blocked_project: 403,
-  gate2_blocked_tmp_no_lease: 403,
-  gate2_leased_tmp: 200
-}
+tool request → CDE → governance signal → Kingpin → authority decision → enforcement
 ```
 
-## Logs
+## Run
 
-Gateway decisions append to:
+Install both root Python requirements files and this folder's Node dependencies:
 
-- `../logs/gateway_decisions.jsonl`
+```bash
+python -m pip install -r requirements.txt -r requirements_gateway.txt
+npm --prefix gateway_node install
+npm --prefix gateway_node run demo
+```
 
-Each entry includes allow/blocked + reason, `cde_gate`, `tool_floor_gate`, `effective_gate`, and CDE provenance (`baseline_hash`, `extractor_versions`, evidence spans), plus optional `session_id`.
+Set `CDE_PYTHON` to your Python executable if the root `.venv` is unavailable.
+The demo starts FastAPI on `127.0.0.1:8008` and Node on `127.0.0.1:8787`, asserts
+the outcomes, prints a transcript, then stops both. All tool actions are simulated.
 
-## Notes
+## Authority boundary
 
-- Tool actions are **simulated** in this demo (no real file deletion).
-- The gateway requires the warm FastAPI service to preserve session history; no automatic stateless fallback.
-- Set `CDE_PYTHON` to your Python executable when running the demo if the project `.venv` is unavailable. Install both root requirements files first.
-- `enforcement.js` owns tool floors and allow/block; `demo_authority.js` separately issues and validates demo leases. CDE grants no authority.
-- See [the signal contract and architecture](../ARCHITECTURE.md).
+- CDE: Gate 0 PASS, Gate 1 EVIDENCE REQUIRED, Gate 2 LEASE REQUIRED.
+- `kingpin/authority.js`: full → non-destructive → read-only → quarantined envelope;
+  evidence policy; context/operation-bound leases; revocation; staged recovery.
+- `enforcement.js`: mechanically maps Kingpin's five outcomes to HTTP statuses.
+- `/lease` and `/revoke`: local demo control-plane routes delegated to Kingpin.
 
-## License
+The original six baseline outcomes remain. The expanded demo shows 7 → 4 → 2 → 0
+eligible tools, revoked leases, then restoration after consecutive inactive CDE
+evaluations. Old authority stays revoked; restored capabilities need fresh leases
+where required. CDE grants no authority.
 
-CC BY-NC 4.0 — see `../LICENSE`.
+See [ARCHITECTURE.md](../ARCHITECTURE.md) for the full contract, request shapes,
+status mapping and in-memory/unauthenticated demo limitations, and
+[TRANSCRIPT.md](TRANSCRIPT.md) for the verified merged run.
 
-## Contact
+## Validation and audit
 
-Stephen A. Putman — putmanmodel@pm.me
+```bash
+python -m unittest discover -s tests -v
+npm --prefix gateway_node test
+```
+
+Gateway audit records append to `logs/gateway_decisions.jsonl` and include both
+`governance_signal` and `authority_decision`, plus original evidence/provenance and
+compatibility fields. The gateway requires the warm service and has no stateless
+fallback. CDE's 32-event regression baseline remains unchanged.
