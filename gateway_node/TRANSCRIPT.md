@@ -39,12 +39,22 @@ RECOVERY 6: CDE=0 Kingpin=allow envelope=non_destructive tools=4
 RECOVERY 7: CDE=0 Kingpin=allow envelope=full tools=7
 OLD LEASE STAYS REVOKED: CDE=0 Kingpin=deny envelope=full tools=7
 FRESH AUTHORITY AFTER RESTORATION: CDE=0 Kingpin=allow envelope=full tools=7
+HUMAN REVIEW (isolated low-confidence fixture, HTTP 428): CDE=1 Kingpin=human_review envelope=non_destructive tools=4
 All merged demo assertions passed: Deviation ↑ → authority surface ↓
 ```
 
-The original six baseline outcomes remain. Moderate Gate 2 deviation permits only
-read capabilities with a scoped lease; severe deviation leaves no eligible tools.
-Restoration needs two inactive Gate 0 evaluations per step. Revoked leases stay
-revoked even after the full envelope returns. Human-review handling is covered by
-the authority tests; the tool-wrapper text in this HTTP script does not produce
-CDE's low-confidence branch.
+The original six baseline outcomes and the capability sequence
+**7 → 4 → 2 → 0 → 2 → 4 → 7** remain intact. Revoked leases stay revoked after
+restoration.
+
+The HUMAN REVIEW example runs afterward in `review-session`, with its own actor
+and scene. A normal moderate-deviation `/tool` request activates CDE hysteresis.
+The next `/tool` request selects the fixed `low_confidence` demo observation (`.`):
+CDE computes confidence **0.3105**, EMA **0.32908690500841153**, and active Gate 1
+with reason `LOW_CONFIDENCE`. Kingpin returns its existing `human_review` outcome;
+the gateway blocks with HTTP 428, even though dry-run and diff evidence are present.
+
+`demo.js` opts its gateway child into `CDE_DEMO_FIXTURES=1`. The fixture is rejected
+when that switch is absent, accepts no arbitrary evaluation text or fabricated
+signal, and is identified in the response/audit `evaluation_input` field. Normal
+requests retain the original tool wrapper. CDE and Kingpin semantics are unchanged.

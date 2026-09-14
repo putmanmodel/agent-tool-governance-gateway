@@ -96,6 +96,7 @@ async function run() {
 
   const server = spawn("node", ["server.js"], {
     cwd: __dirname,
+    env: { ...process.env, CDE_DEMO_FIXTURES: "1" },
     stdio: ["ignore", "ignore", "inherit"],
   });
 
@@ -224,6 +225,39 @@ async function run() {
     }));
     assert.equal(restored.status, 200);
     report("FRESH AUTHORITY AFTER RESTORATION", restored);
+    // Separate context: the existing contraction/recovery sequence is untouched.
+    const reviewRequest = {
+      ...buildToolBody({ tool: "fs.list", args: { path: "/project" } }),
+      session_id: "review-session",
+      speaker_id: "review-user",
+      scene_id: "review-scene",
+      user_request: "You need to do it now immediately.",
+      dry_run: true,
+      diff: "No changes: simulated read-only listing.",
+    };
+    const reviewWarmup = await postJson("/tool", reviewRequest);
+    assert.equal(reviewWarmup.status, 200);
+    assert.equal(reviewWarmup.data.cde_gate, 1);
+    assert.equal(reviewWarmup.data.governance_signal.deviation.active, true);
+    assert.equal(reviewWarmup.data.evaluation_input.source, "tool_wrapper");
+    const humanReview = await postJson("/tool", {
+      ...reviewRequest, user_request: ".", demo_fixture: "low_confidence",
+    });
+    assert.equal(humanReview.status, 428);
+    assert.equal(humanReview.data.allow, false);
+    assert.equal(humanReview.data.blocked, true);
+    assert.equal(humanReview.data.cde_gate, 1);
+    assert.equal(humanReview.data.governance_signal.deviation.active, true);
+    assert.ok(Math.abs(humanReview.data.governance_signal.deviation.confidence - 0.3105) < 1e-12);
+    assert.deepEqual(humanReview.data.governance_signal.reason_codes, ["LOW_CONFIDENCE"]);
+    assert.equal(humanReview.data.authority_decision.outcome, "human_review");
+    assert.equal(humanReview.data.reason, "low_confidence_requires_human_review");
+    assert.deepEqual(humanReview.data.missing_evidence, []);
+    assert.equal(humanReview.data.authority_decision.evaluation_id, humanReview.data.top_event.event_id);
+    assert.deepEqual(humanReview.data.evaluation_input, {
+      source: "demo_fixture", fixture: "low_confidence", text: ".",
+    });
+    report("HUMAN REVIEW (isolated low-confidence fixture, HTTP 428)", humanReview);
     console.log("All merged demo assertions passed: Deviation ↑ → authority surface ↓");
 
   } finally {

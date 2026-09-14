@@ -184,6 +184,26 @@ This demo emits the review requirement; it has no human-approval UI or override
 endpoint. A subsequent independently evaluated request is reconsidered under the
 same envelope and confidence policy.
 
+### Visible HUMAN REVIEW fixture
+
+Normal `/tool` text includes `TOOL`, serialized arguments and `user_request`,
+which raises lexical/pragmatic confidence above the low-confidence threshold.
+Shortening only `user_request` cannot expose this branch.
+
+The scripted demo opts its gateway child into `CDE_DEMO_FIXTURES=1` and runs a
+separate review session after the existing contraction/recovery sequence. A normal
+moderate-deviation tool request activates hysteresis; a following request with
+`demo_fixture: "low_confidence"` evaluates the fixed observation `.`. Unchanged
+CDE computes confidence 0.3105 while still active, emitting Gate 1 with
+`LOW_CONFIDENCE`. Unchanged Kingpin then returns `human_review`, enforced as HTTP
+428 even with dry-run/diff evidence supplied.
+
+`demo_input.js` selects only this fixed observation when explicitly enabled.
+Unknown/disabled fixtures are rejected before evaluation. It accepts no arbitrary
+evaluation text or injected signal. Normal wrapper construction is unchanged;
+responses and audit records identify the evaluated text/source in `evaluation_input`.
+The isolated fixture does not alter the main 7 → 4 → 2 → 0 → 2 → 4 → 7 sequence.
+
 ### Leases and revocation
 
 `POST /lease` delegates to Kingpin. It requires an already evaluated context,

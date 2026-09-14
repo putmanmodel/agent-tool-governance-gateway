@@ -36,6 +36,12 @@ eligible tools, revoked leases, then restoration after consecutive inactive CDE
 evaluations. Old authority stays revoked; restored capabilities need fresh leases
 where required. CDE grants no authority.
 
+A final isolated-session example visibly returns **HUMAN REVIEW (HTTP 428)**.
+The demo enables `CDE_DEMO_FIXTURES=1` for its gateway child and selects the fixed
+`low_confidence` observation (`.`) after warming CDE hysteresis. The real engine
+computes `LOW_CONFIDENCE`; Kingpin and enforcement run unchanged. The fixture is
+rejected by default and recorded in the response/audit `evaluation_input` field.
+
 See [ARCHITECTURE.md](../ARCHITECTURE.md) for the full contract, request shapes,
 status mapping and in-memory/unauthenticated demo limitations, and
 [TRANSCRIPT.md](TRANSCRIPT.md) for the verified merged run.

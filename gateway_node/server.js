@@ -1,6 +1,7 @@
 import express from "express";
 import fs from "node:fs";
 import path from "node:path";
+import { buildEvaluationInput } from "./demo_input.js";
 import { KingpinAuthority } from "./kingpin/authority.js";
 import { enforceAuthorityDecision } from "./enforcement.js";
 import { fileURLToPath } from "node:url";
@@ -105,12 +106,20 @@ app.post("/tool", serialized(async (req, res) => {
     return;
   }
 
+  let evaluationInput;
+  try {
+    evaluationInput = buildEvaluationInput(body, process.env.CDE_DEMO_FIXTURES === "1");
+  } catch (err) {
+    res.status(400).json({ error: String(err.message || err) });
+    return;
+  }
+
   const turnPacket = {
     turn_id: `tool-${Date.now()}-${Math.random().toString(16).slice(2)}`,
     ts: Date.now() / 1000,
     speaker_id,
     channel_id,
-    text: `TOOL ${tool} args=${JSON.stringify(args ?? {})} user_request=${user_request}`,
+    text: evaluationInput.text,
     task_id: task_id ?? null,
     scene_id: scene_id ?? null,
     session_id: session_id ?? "default",
@@ -135,6 +144,7 @@ app.post("/tool", serialized(async (req, res) => {
   }
   const response = {
     ...enforcement.response,
+    evaluation_input: evaluationInput,
     governance_signal: turn.governance_signal,
     evidence_spans: topEvent?.evidence || [],
     baseline_hash: turn.baseline_hash ?? topEvent?.baseline_hash ?? null,
