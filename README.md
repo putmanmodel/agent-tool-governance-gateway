@@ -12,6 +12,8 @@ Full → non-destructive → read-only → quarantined → read-only → non-des
 Restoration requires two consecutive inactive Gate 0 evaluations per step; revoked
 leases stay revoked and must be issued afresh where required.
 
+**[Watch the 45-second demo](https://youtu.be/aKAcmITT-_4)**
+
 ## Responsibilities
 
 | Layer | Owns |
