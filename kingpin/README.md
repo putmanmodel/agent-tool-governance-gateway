@@ -27,6 +27,7 @@ Calls are synchronous; the gateway still serializes CDE evaluation through
 enforcement, together with issuance and revocation, to preserve ordering.
 
 - `index.js`: public export.
+- `auth/`: authenticated gateway principals and permissions; see the [auth guide](auth/README.md).
 - `authority.js`: authority decisions and signal validation through state interfaces.
 - `state/`: memory and optional SQLite stores; see the [state guide](state/README.md).
 - `policy/`: validated local JSON tool configuration; see the [policy guide](policy/README.md).

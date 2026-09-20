@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { randomBytes } from "node:crypto";
+import os from "node:os";
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -13,6 +15,9 @@ const serviceUrl = "http://127.0.0.1:8008/turn";
 const venvPython = path.resolve(repoRoot, ".venv", "bin", "python3");
 const pythonCmd = process.env.CDE_PYTHON || (fs.existsSync(venvPython) ? venvPython : "python3");
 
+// Ephemeral demo credentials, never production defaults or persisted governance data.
+const demoTokens = Object.fromEntries(['agent', 'admin', 'reviewAgent'].map(role => [role, randomBytes(32).toString('base64url')]));
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -20,7 +25,9 @@ function sleep(ms) {
 async function postJson(pathname, body) {
   const res = await fetch(`${baseUrl}${pathname}`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", authorization: `Bearer ${
+      pathname === '/lease' || pathname === '/revoke' ? demoTokens.admin
+        : body.speaker_id === 'review-user' ? demoTokens.reviewAgent : demoTokens.agent}` },
     body: JSON.stringify(body),
   });
   const data = await res.json();
@@ -83,6 +90,15 @@ function printGateMathIfNeeded(result) {
 }
 
 async function run() {
+  const authDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kingpin-demo-auth-'));
+  const authFile = path.join(authDir, 'auth.json');
+  fs.writeFileSync(authFile, JSON.stringify({ schema_version: '1.0', principals: [
+    { token: demoTokens.agent, principal_id: 'demo-agent', role: 'agent', agent_id: 'demo-user',
+      allowed_contexts: [{ session_id: 'demo-session', channel_id: 'demo-channel', scene_id: 'demo-scene', task_id: null }] },
+    { token: demoTokens.reviewAgent, principal_id: 'review-demo-agent', role: 'agent', agent_id: 'review-user',
+      allowed_contexts: [{ session_id: 'review-session', channel_id: 'demo-channel', scene_id: 'review-scene', task_id: null }] },
+    { token: demoTokens.admin, principal_id: 'demo-admin', role: 'authority_admin' },
+  ] }), { mode: 0o600 });
   const service = spawn(pythonCmd, [
     "-m", "uvicorn", "cde_service:app",
     "--host", "127.0.0.1",
@@ -96,7 +112,7 @@ async function run() {
 
   const server = spawn("node", ["server.js"], {
     cwd: __dirname,
-    env: { ...process.env, CDE_DEMO_FIXTURES: "1" },
+    env: { ...process.env, CDE_DEMO_FIXTURES: "1", KINGPIN_AUTH_FILE: authFile },
     stdio: ["ignore", "ignore", "inherit"],
   });
 
@@ -104,6 +120,17 @@ async function run() {
     await waitForServiceReady();
     await sleep(400);
 
+    // Actual HTTP authentication failures must precede any authority evaluation.
+    for (const [endpoint, token, status] of [['/tool', null, 401], ['/lease', demoTokens.agent, 403], ['/revoke/all', demoTokens.agent, 403]]) {
+      const response = await fetch(`${baseUrl}${endpoint}`, { method: 'POST',
+        headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify(buildToolBody({ tool: 'fs.list', args: {} })) });
+      assert.equal(response.status, status);
+    }
+    const malformedUnauthenticated = await fetch(`${baseUrl}/tool`, {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: '{',
+    });
+    assert.equal(malformedUnauthenticated.status, 401);
     const gate0 = await postJson("/tool", buildToolBody({
       tool: "fs.list",
       args: { path: "/project" },
@@ -263,6 +290,7 @@ async function run() {
   } finally {
     server.kill("SIGTERM");
     service.kill("SIGTERM");
+    fs.rmSync(authDir, { recursive: true, force: true });
   }
 }
 

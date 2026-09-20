@@ -1,3 +1,4 @@
+import { authentication, dispatch, headers } from "../tests/fixtures/auth.mjs";
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -259,13 +260,14 @@ test('corrupt or incompatible nonce/epoch state fails closed, including overflow
   assert.throws(() => new SQLiteStateStore({ filename }), /orphaned/);
 });
 
-test('new administrative APIs have no gateway route', async () => {
+test('new administrative APIs are exposed only through authenticated admin routes', async () => {
   process.env.NODE_ENV = 'test';
   const { createGatewayApp } = await import('./server.js');
-  const app = createGatewayApp();
-  assert.deepEqual(app._router.stack.filter(layer => layer.route).map(layer => layer.route.path), ['/turn', '/lease', '/revoke', '/tool']);
-  const source = fs.readFileSync(new URL('./server.js', import.meta.url), 'utf8');
-  assert.doesNotMatch(source, /revokeLeaseNonce|revokeAllLeases|leaseEpoch|nonceRevocations/);
+  const app = createGatewayApp({ authentication });
+  for (const path of ['/revoke/nonce', '/revoke/all']) {
+    assert.equal((await dispatch(app, path, {}, {})).statusCode, 401);
+    assert.equal((await dispatch(app, path, {}, headers('agent'))).statusCode, 403);
+  }
 });
 
 test('a mid-migration failure rolls back new columns and nonce backfill before retry', t => {

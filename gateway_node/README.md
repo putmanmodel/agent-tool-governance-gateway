@@ -21,7 +21,8 @@ npm --prefix gateway_node run demo
 
 Set `CDE_PYTHON` to your Python executable if the root `.venv` is unavailable.
 The demo starts FastAPI on `127.0.0.1:8008` and Node on `127.0.0.1:8787`, asserts
-the outcomes, prints a transcript, then stops both. All tool actions are simulated.
+the outcomes, prints a transcript, then stops both. It generates separate
+ephemeral credentials for runtime and admin calls and deletes them afterward. All tool actions are simulated.
 
 ## Authority boundary
 
@@ -29,7 +30,9 @@ the outcomes, prints a transcript, then stops both. All tool actions are simulat
 - `../kingpin/authority.js`: full → non-destructive → read-only → quarantined envelope;
   evidence policy; context/operation-bound leases; revocation; staged recovery.
 - `enforcement.js`: mechanically maps Kingpin's five outcomes to HTTP statuses.
-- `/lease` and `/revoke`: local demo control-plane routes delegated to Kingpin.
+- `/lease`, `/revoke`, `/revoke/nonce`, `/revoke/all`: authenticated admin routes
+  delegated to Kingpin. `/turn` and `/tool` require a scoped agent principal.
+- `/review/access`: reviewer-only boundary reporting that resolution is not yet supported.
 
 The original six baseline outcomes remain. The expanded demo shows 7 → 4 → 2 → 0
 eligible tools, revoked leases, then restoration after consecutive inactive CDE
@@ -43,7 +46,8 @@ computes `LOW_CONFIDENCE`; Kingpin and enforcement run unchanged. The fixture is
 rejected by default and recorded in the response/audit `evaluation_input` field.
 
 See [ARCHITECTURE.md](../ARCHITECTURE.md) for the full contract, request shapes,
-status mapping and in-memory/unauthenticated demo limitations, and
+status mapping and authority contract, [authentication](../kingpin/auth/README.md)
+for credential setup and deployment limits, and
 [TRANSCRIPT.md](TRANSCRIPT.md) for the verified merged run.
 
 ## Validation and audit

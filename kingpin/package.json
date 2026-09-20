@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./index.js",
-    "./state/sqlite": "./state/sqlite.js"
+    "./state/sqlite": "./state/sqlite.js",
+    "./auth": "./auth/access.js"
   }
 }

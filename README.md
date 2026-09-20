@@ -46,8 +46,8 @@ npm --prefix gateway_node run demo
 The script starts the warm FastAPI CDE service and Node gateway, asserts the
 outcomes, prints the transcript, and stops both. It includes scoped authority,
 revocation, quarantine, staged recovery, and an isolated **HUMAN REVIEW (HTTP 428)**
-fixture. All tools are simulated; authority state is in memory and control-plane
-endpoints are demo-only. Set `CDE_PYTHON` to select another Python environment.
+fixture. All tools are simulated; the demo uses in-memory state and temporary
+agent/admin credentials. Set `CDE_PYTHON` to select another Python environment.
 
 See the [verified transcript](gateway_node/TRANSCRIPT.md),
 [demo details](gateway_node/README.md), and
@@ -86,3 +86,12 @@ See the [behavior contract and versioned boundary fields](docs/v0.3-behavior-con
 for regression coverage, schema scope, and current representation limits.
 The four [v1 boundary schemas](schemas/v1/) are descriptive and test-validated;
 they do not change runtime validation or authority policy.
+
+## Authenticated evaluator gateway
+
+Gateway calls now require bearer credentials from a server-controlled
+`KINGPIN_AUTH_FILE`. Agent identities and contexts are explicitly scoped;
+authority administration and reviewer access have separate permissions.
+See [authentication setup and usage](kingpin/auth/README.md). The merged demo
+creates temporary credentials automatically. Kingpin authority semantics and
+frozen v1 payloads remain unchanged.

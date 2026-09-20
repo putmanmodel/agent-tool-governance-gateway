@@ -1,3 +1,4 @@
+import { authentication, headers } from "../tests/fixtures/auth.mjs";
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -167,13 +168,13 @@ test('gateway imports no storage implementation and failed persistence cannot pr
   const { createGatewayApp } = await import('./server.js');
   const store = open(t, temporary(t), true), authority = new KingpinAuthority({ store });
   store.close();
-  const app = createGatewayApp({ authority,
+  const app = createGatewayApp({ authentication, authority,
     evaluateTurn: async () => ({ governance_signal: signal(0), top_event: { event_id: 'failed-store' } }),
     logDecision() { assert.fail('cannot log a successful decision'); },
   });
   const response = { status(code) { this.code = code; return this; }, json(body) { this.body = body; } };
   await app._router.stack.find(layer => layer.route?.path === '/tool').route.stack[0].handle(
-    { body: { ...request, plan_id: 'plan', user_request: 'read' } }, response);
+    { body: { ...request, plan_id: 'plan', user_request: 'read' }, headers: headers() }, response);
   assert.equal(response.code, 502);
   assert.equal(response.body.allow, undefined);
 });

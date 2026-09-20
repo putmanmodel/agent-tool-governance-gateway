@@ -2,6 +2,7 @@ import express from "express";
 import fs from "node:fs";
 import path from "node:path";
 import { buildEvaluationInput } from "./demo_input.js";
+import { loadAuthentication, AccessError } from "../kingpin/auth/access.js";
 import { KingpinAuthority } from "../kingpin/index.js";
 import { enforceAuthorityDecision } from "./enforcement.js";
 import { fileURLToPath } from "node:url";
@@ -30,11 +31,24 @@ async function callCdeTurn(turnPacket) {
 
 // Injected collaborators make the transport boundary testable without duplicating policy.
 export function createGatewayApp({
+  authentication = loadAuthentication(),
   authority = new KingpinAuthority(),
   evaluateTurn = callCdeTurn,
   logDecision = appendDecisionLog,
 } = {}) {
   const app = express();
+  const authenticatedRequests = new WeakMap();
+  function authenticateRequest(req) {
+    if (!authenticatedRequests.has(req)) {
+      authenticatedRequests.set(req, authentication.authenticate(req.headers?.authorization));
+    }
+    return authenticatedRequests.get(req);
+  }
+  // Reject unauthenticated callers before parsing any operational payload.
+  app.use((req, res, next) => {
+    try { authenticateRequest(req); next(); }
+    catch { res.status(401).json({ error: "Authentication required" }); }
+  });
   app.use(express.json({ limit: "1mb" }));
   // Serialize this in-memory demo's evaluation → authority → enforcement sequence.
   // A lease/revocation cannot interleave between an authority decision and its use.
@@ -48,7 +62,7 @@ export function createGatewayApp({
       try {
         await handler(req, res);
       } catch (err) {
-        if (!res.headersSent) res.status(500).json({ error: String(err.message || err) });
+        if (!res.headersSent) res.status(500).json({ error: "Operation failed" });
       } finally {
         // Do not release on client disconnect while evaluation is still running.
         release();
@@ -56,37 +70,60 @@ export function createGatewayApp({
     };
   }
 
-  app.post("/turn", serialized(async (req, res) => {
+  // Authentication and ownership are checked before CDE calls, queueing or state access.
+  function protectedRoute(permission, handler) {
+    const execute = serialized(handler);
+    return async (req, res) => {
+      try {
+        const principal = authenticateRequest(req);
+        authentication.authorize(principal, permission, req.body);
+        if (permission === "runtime.evaluate" && req.body?.lease_token) {
+          authentication.authorize(principal, "runtime.use_lease", req.body);
+        }
+        req.authPrincipal = principal;
+      } catch (error) {
+        const status = error instanceof AccessError ? error.status : 401;
+        res.status(status).json({ error: status === 401 ? "Authentication required" : "Forbidden" });
+        return;
+      }
+      return execute(req, res);
+    };
+  }
+  function audit(req, record) {
+    logDecision(authentication.redact({ ...record, principal_id: req.authPrincipal.principal_id }));
+  }
+
+  app.post("/turn", protectedRoute("runtime.evaluate", async (req, res) => {
     try {
       const result = await evaluateTurn(req.body);
       res.json(result);
     } catch (err) {
-      res.status(400).json({ error: String(err.message || err) });
+      res.status(400).json({ error: "Operation rejected" });
     }
   }));
 
-  app.post("/lease", serialized((req, res) => {
+  app.post("/lease", protectedRoute("authority.issue_lease", (req, res) => {
     try {
       const lease = authority.issue(req.body || {});
-      logDecision({ ts: new Date().toISOString(), endpoint: "/lease", issuer: "kingpin",
+      audit(req, { ts: new Date().toISOString(), endpoint: "/lease", issuer: "kingpin",
         context: lease.context, tool: req.body.tool, expires_at: lease.expires_at, lease_id: lease.lease_id });
       res.json(lease);
     } catch (err) {
-      res.status(400).json({ error: String(err.message || err) });
+      res.status(400).json({ error: "Operation rejected" });
     }
   }));
 
-  app.post("/revoke", serialized((req, res) => {
+  app.post("/revoke", protectedRoute("authority.revoke_lease", (req, res) => {
     try {
       const result = authority.revoke(req.body || {});
-      logDecision({ ts: new Date().toISOString(), endpoint: "/revoke", ...result });
+      audit(req, { ts: new Date().toISOString(), endpoint: "/revoke", ...result });
       res.json(result);
     } catch (err) {
-      res.status(400).json({ error: String(err.message || err) });
+      res.status(400).json({ error: "Operation rejected" });
     }
   }));
 
-  app.post("/tool", serialized(async (req, res) => {
+  app.post("/tool", protectedRoute("runtime.evaluate", async (req, res) => {
     const body = req.body || {};
     const {
       tool,
@@ -114,7 +151,7 @@ export function createGatewayApp({
     try {
       evaluationInput = buildEvaluationInput(body, process.env.CDE_DEMO_FIXTURES === "1");
     } catch (err) {
-      res.status(400).json({ error: String(err.message || err) });
+      res.status(400).json({ error: "Operation rejected" });
       return;
     }
 
@@ -133,7 +170,7 @@ export function createGatewayApp({
     try {
       turn = await evaluateTurn(turnPacket);
     } catch (err) {
-      res.status(503).json({ error: String(err.message || err) });
+      res.status(503).json({ error: "Evaluation unavailable" });
       return;
     }
 
@@ -143,7 +180,7 @@ export function createGatewayApp({
       const authorityDecision = authority.decide(turn.governance_signal, body, topEvent.event_id);
       enforcement = enforceAuthorityDecision(authorityDecision);
     } catch (err) {
-      res.status(502).json({ error: String(err.message || err) });
+      res.status(502).json({ error: "Authority operation failed" });
       return;
     }
     const response = {
@@ -158,7 +195,7 @@ export function createGatewayApp({
       events: turn.events ?? [],
     };
 
-    logDecision({
+    audit(req, {
       ts: new Date().toISOString(),
       endpoint: "/tool",
       tool,
@@ -178,15 +215,39 @@ export function createGatewayApp({
 
     res.status(enforcement.status).json(response);
   }));
+  app.post("/revoke/nonce", protectedRoute("authority.revoke_lease", (req, res) => {
+    try {
+      const result = authority.revokeLeaseNonce(req.body?.lease_nonce);
+      audit(req, { ts: new Date().toISOString(), endpoint: "/revoke/nonce", ...result });
+      res.json(result);
+    } catch { res.status(400).json({ error: "Operation rejected" }); }
+  }));
+
+  app.post("/revoke/all", protectedRoute("authority.revoke_all", (req, res) => {
+    try {
+      const result = authority.revokeAllLeases();
+      audit(req, { ts: new Date().toISOString(), endpoint: "/revoke/all", ...result });
+      res.json(result);
+    } catch { res.status(400).json({ error: "Operation rejected" }); }
+  }));
+
+  // A reviewer-only boundary, not a new review-resolution authority mechanism.
+  app.get("/review/access", protectedRoute("review.access", (req, res) => {
+    res.json({ principal_id: req.authPrincipal.principal_id, role: req.authPrincipal.role,
+      resolution_supported: false });
+  }));
+  // Do not expose JSON parser stacks, internal errors or reflected payloads.
+  app.use((err, req, res, next) => {
+    if (res.headersSent) return next(err);
+    res.status(err.type === "entity.too.large" ? 413 : 400).json({ error: "Invalid request" });
+  });
   return app;
 }
-
-const app = createGatewayApp();
 
 const port = Number(process.env.PORT || 8787);
 
 export function startServer() {
-  return app.listen(port, "127.0.0.1", () => {
+  return createGatewayApp().listen(port, "127.0.0.1", () => {
     console.log(`gateway_node listening on http://localhost:${port}`);
   });
 }

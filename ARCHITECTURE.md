@@ -231,10 +231,11 @@ invalidates that tool's leases. The old unbound `{tool, scope, seconds}` issuanc
 shape is intentionally replaced. Issuance and revocation are Kingpin control-plane
 operations, separate from tool evaluation.
 
-All tools are simulated. The local demo control plane is unauthenticated and
-identity fields are caller-provided. It demonstrates authority state and contract
-boundaries, not production identity verification or remote authorization. A real
-deployment must establish trusted identity and protect the control plane.
+All tools are simulated. The v0.4 gateway now authenticates opaque bearer tokens
+against server-configured principals. Agents are bound to allowed identities and
+contexts; admin and reviewer permissions are separate. See the
+[authentication boundary](kingpin/auth/README.md) for routes, configuration and
+secure-transport requirements. Authentication does not replace Kingpin decisions.
 
 ## State, audit, and validation
 

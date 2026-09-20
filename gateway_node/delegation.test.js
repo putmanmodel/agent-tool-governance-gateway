@@ -1,3 +1,4 @@
+import { authentication, headers } from "../tests/fixtures/auth.mjs";
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { request, signal } from '../tests/fixtures/authority_cases.mjs';
@@ -13,7 +14,7 @@ async function post(app, path, body) {
   const response = { statusCode: 200, headersSent: false,
     status(code) { this.statusCode = code; return this; },
     json(value) { this.body = value; this.headersSent = true; return this; } };
-  await route.stack[0].handle({ body }, response);
+  await route.stack[0].handle({ body, headers: headers(path === '/lease' || path === '/revoke' ? 'admin' : 'agent') }, response);
   return response;
 }
 const body = { ...request, tool: 'fs.delete', plan_id: 'plan', user_request: 'simulate delete',
@@ -27,7 +28,7 @@ test('gateway delegates once with original request, CDE signal and trusted event
     // Deliberately disagree with local tool-floor/CDE policy: transport must obey
     // its authority collaborator, not independently recompute that policy.
     const decision = { ...template, outcome, reason: 'authority-owned-reason' };
-    const app = createGatewayApp({
+    const app = createGatewayApp({ authentication,
       authority: { decide(...args) { calls.push(args); return decision; } },
       evaluateTurn: async () => turn,
       logDecision: record => logs.push(record),
@@ -50,7 +51,7 @@ test('gateway delegates once with original request, CDE signal and trusted event
 
 test('gateway preserves HUMAN REVIEW returned by the extracted runtime', async () => {
   const review = { ...turn, governance_signal: signal(1, 'LOW_CONFIDENCE') };
-  const app = createGatewayApp({ evaluateTurn: async () => review, logDecision() {} });
+  const app = createGatewayApp({ authentication, evaluateTurn: async () => review, logDecision() {} });
   const response = await post(app, '/tool', { ...body, tool: 'fs.list', dry_run: true, diff: 'diff' });
   assert.equal(response.statusCode, 428);
   assert.equal(response.body.authority_decision.outcome, 'human_review');
@@ -58,21 +59,21 @@ test('gateway preserves HUMAN REVIEW returned by the extracted runtime', async (
 });
 
 test('gateway fails closed on authority errors and does not fall back to CDE gate', async () => {
-  const app = createGatewayApp({
+  const app = createGatewayApp({ authentication,
     authority: { decide() { throw new Error('CDE evaluation already consumed'); } },
     evaluateTurn: async () => ({ ...turn, governance_signal: signal(0) }),
     logDecision() { assert.fail('failed authority determination must not log a success'); },
   });
   const response = await post(app, '/tool', body);
   assert.equal(response.statusCode, 502);
-  assert.deepEqual(response.body, { error: 'CDE evaluation already consumed' });
+  assert.deepEqual(response.body, { error: 'Authority operation failed' });
 });
 
 test('lease and revoke routes delegate unchanged bodies and responses to Kingpin', async () => {
   const calls = [];
   const lease = { issuer: 'kingpin', lease_id: 'id', lease_token: 'token', context: {}, expires_at: 'expiry' };
   const revocation = { revoked: true, context: {}, target: { tool: body.tool }, capability_envelope: {} };
-  const app = createGatewayApp({ authority: {
+  const app = createGatewayApp({ authentication, authority: {
     issue(value) { calls.push(['issue', value]); return lease; },
     revoke(value) { calls.push(['revoke', value]); return revocation; },
   }, logDecision() {} });
@@ -82,7 +83,7 @@ test('lease and revoke routes delegate unchanged bodies and responses to Kingpin
 });
 
 test('evaluation-only turn route never invokes Kingpin', async () => {
-  const app = createGatewayApp({ authority: { decide() { assert.fail('evaluation is not authority'); } },
+  const app = createGatewayApp({ authentication, authority: { decide() { assert.fail('evaluation is not authority'); } },
     evaluateTurn: async value => { assert.equal(value, body); return turn; }, logDecision() {} });
   assert.equal((await post(app, '/turn', body)).body, turn);
 });

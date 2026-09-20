@@ -30,8 +30,9 @@ authority.revokeAllLeases(); // { revoked: true, lease_epoch: 1 }
 // Both A and B now have an older issuance epoch.
 ```
 
-These are trusted in-process control-plane operations. No new gateway routes
-expose them. Unknown nonces throw without creating revocation state. Repeating
+These remain trusted in-process control-plane operations. The subsequent
+authentication step exposes them through admin-only `/revoke/nonce` and
+`/revoke/all` routes; see the [auth guide](auth/README.md). Unknown nonces throw without creating revocation state. Repeating
 nonce revocation succeeds with the same result. Each revoke-all call advances
 the epoch once; it is deliberately not idempotent.
 
@@ -111,18 +112,17 @@ Restarted memory-only processes intentionally start fresh, as before.
 
 ## Remaining security boundaries
 
-Authentication/roles, signed lease integrity, protection against token theft and
-protection against direct database tampering or restoring an old valid backup
-are not implemented. Anyone with trusted runtime/admin or file access is inside
-the current trust boundary. The original demo `/lease` and `/revoke` routes remain
-unauthenticated demo control-plane routes; this change does not make them safe
-for untrusted exposure. The new nonce and epoch APIs are not routed there.
+The gateway now authenticates scoped agent, admin and reviewer principals.
+Signed lease integrity, protection against token theft and protection against
+direct database tampering or restoring an old valid backup are not implemented. Anyone with trusted runtime/admin or file access is inside
+the current trust boundary. The `/lease` and `/revoke` routes now require admin authentication, as do the
+new nonce and epoch routes. Secure transport remains a deployment requirement.
 Acting-agent fields cannot forge stored state, but a valid stolen bearer token
 with matching request context is not distinguished from its holder.
 
 This is operational governance state, not PUTMAN Memory Stratification. No CDE
-persistence, lease renewal, new recovery algorithm, authentication or signing
-was added.
+persistence, lease renewal, new recovery algorithm or signing was added by the
+revocation step; the later authentication boundary does not change these semantics.
 
 ## Validation recorded for this step
 

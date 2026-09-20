@@ -24,3 +24,6 @@ gateway_node/.env
 
 # Task-local Python environment
 .venv-task/
+
+# Local authentication configuration (never commit real credentials)
+*.auth.local.json
