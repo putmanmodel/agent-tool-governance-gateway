@@ -1,7 +1,6 @@
 # Kingpin runtime
 
-A transport-independent, in-memory Node ES module. It depends only on
-`node:crypto`, not Express, the gateway, Python, or CDE implementation code.
+A transport-independent, in-memory Node ES module. It uses only Node built-ins, not Express, the gateway, Python, or CDE implementation code.
 
 ```js
 import { KingpinAuthority } from './kingpin/index.js';
@@ -25,7 +24,8 @@ Calls are synchronous; the gateway still serializes CDE evaluation through
 enforcement, together with issuance and revocation, to preserve ordering.
 
 - `index.js`: public export.
-- `authority.js`: unchanged authority policy, validation and in-memory state.
+- `authority.js`: authority decisions, signal validation and in-memory state.
+- `policy/`: validated local JSON tool configuration; see the [policy guide](policy/README.md).
 - `package.json`: explicit ES module boundary, no external dependencies.
 - `../gateway_node/kingpin/authority.js`: compatibility re-export only.
 
@@ -55,7 +55,8 @@ The existing merged demo covers actual HTTP transport.
 Validation for this extraction: all **27 Node tests** and **7 Python tests**
 passed, including the boundary-schema tests and unchanged 32-event baseline.
 The merged HTTP demo and standalone demo passed; `git diff --check` passed.
-The moved `authority.js` was also verified byte-for-byte against its original
-source. No substantive authority logic was left behind or required a behavioral
+At extraction, the moved `authority.js` was also verified byte-for-byte against
+its original source. The subsequent policy step externalizes static configuration
+while retaining the frozen decision oracle. No substantive authority logic was left behind or required a behavioral
 change. Gateway HTTP validation, CDE orchestration, request serialization, audit
 logging and mechanical enforcement remain transport responsibilities.

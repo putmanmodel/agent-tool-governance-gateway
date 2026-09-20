@@ -1,10 +1,8 @@
 import crypto from "node:crypto";
+import { loadPolicy } from "./policy/loader.js";
+import { validatePolicy } from "./policy/validator.js";
 
 const LABELS = ["PASS", "EVIDENCE REQUIRED", "LEASE REQUIRED"];
-const TOOLS = Object.freeze({
-  "fs.list": 0, "fs.read": 0, "fs.write": 1, "git.commit": 1,
-  "fs.delete": 2, "shell.rm": 2, "git.reset_hard": 2,
-});
 const LEVELS = ["full", "non_destructive", "read_only", "quarantined"];
 const REASONS = {
   DEVIATION_INACTIVE: 0, LOW_CONFIDENCE: 1, REVIEW_THRESHOLD_REACHED: 1,
@@ -52,10 +50,21 @@ function validateSignal(signal, context) {
 }
 
 export class KingpinAuthority {
-  constructor({ clock = Date.now } = {}) {
+  #policy;
+  #tools;
+
+  constructor({ clock = Date.now, policy = loadPolicy() } = {}) {
+    this.#policy = validatePolicy(policy);
+    this.#tools = new Map(this.#policy.tools.map(tool => [tool.id, this.#policy.classes[tool.class]]));
     this.clock = clock;
     this.states = new Map();
     this.leases = new Map();
+  }
+
+  // Configuration provenance for server-side audit; the v1 decision contract
+  // retains demo_v1 as its authority-algorithm version.
+  get policyContext() {
+    return Object.freeze({ schema_version: this.#policy.schema_version, policy_version: this.#policy.policy_version });
   }
 
   _lookup(request, create = false) {
@@ -70,8 +79,8 @@ export class KingpinAuthority {
   }
 
   _tools(state) {
-    return Object.keys(TOOLS).filter(tool => !state.revoked.has(tool)
-      && (state.level === 0 || (state.level === 1 && TOOLS[tool] < 2) || (state.level === 2 && TOOLS[tool] === 0)));
+    return [...this.#tools.keys()].filter(tool => !state.revoked.has(tool)
+      && this.#tools.get(tool).allowed_envelopes.includes(LEVELS[state.level]));
   }
 
   _envelope(state) {
@@ -115,12 +124,15 @@ export class KingpinAuthority {
       }
     }
 
-    const floor = own(TOOLS, request.tool) ? TOOLS[request.tool] : 0;
+    // Unknown tools retain the legacy floor projection but never enter the
+    // envelope. Request-supplied classification/requirements are not consulted.
+    const floor = this.#tools.get(request.tool)?.minimum_authority_floor ?? 0;
     const effective = Math.max(signal.gate, floor);
-    const evidence = effective === 1 ? ["dry_run", "diff"] : [];
+    const requirements = this.#policy.gate_requirements[effective];
+    const evidence = [...requirements.evidence];
     const missing = evidence.filter(item => item === "dry_run" ? request.dry_run !== true
       : request.diff == null || !String(request.diff).trim());
-    const leaseRequired = effective === 2;
+    const leaseRequired = requirements.lease;
     let outcome = "allow";
     let reason = "allowed";
     if (state.level === 3) {
@@ -175,7 +187,7 @@ export class KingpinAuthority {
       const lease = this.leases.get(request.lease_token);
       if (!lease || lease.key !== key) throw new Error("Unknown lease in context");
       lease.revoked = "EXPLICIT_REVOCATION";
-    } else if (own(TOOLS, request.tool)) {
+    } else if (this.#tools.has(request.tool)) {
       state.revoked.add(request.tool);
       this._revokeLeases(key, "CAPABILITY_REVOKED", request.tool);
     } else throw new Error("Specify lease_token or known tool");
