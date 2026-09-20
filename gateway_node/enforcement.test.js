@@ -165,3 +165,72 @@ test("identical ordered evaluation streams deterministically restore identical e
     assert.deepEqual(left.decide(s, request, `replay-${i}`), right.decide(s, request, `replay-${i}`));
   });
 });
+
+test("v0.3 full progression includes exact clean counters and revisions", () => {
+  const a = new KingpinAuthority();
+  const stream = [signal(0), signal(1), signal(2), signal(2, "QUARANTINE_THRESHOLD_REACHED"),
+    ...Array.from({ length: 6 }, () => signal(0))];
+  const envelopes = stream.map(s => decide(a, s).capability_envelope);
+  assert.deepEqual(envelopes.map(e => [e.tools.length, e.clean_evaluations, e.revision]),
+    [[7,0,0], [4,0,1], [2,0,2], [0,0,3], [0,1,3], [2,0,4], [2,1,4], [4,0,5], [4,1,5], [7,0,6]]);
+  assert.deepEqual(envelopes[0].tools, ["fs.list", "fs.read", "fs.write", "git.commit", "fs.delete", "shell.rm", "git.reset_hard"]);
+});
+
+test("all seven tools retain their criticality floors", () => {
+  for (const [tool, floor] of Object.entries({ "fs.list": 0, "fs.read": 0, "fs.write": 1,
+    "git.commit": 1, "fs.delete": 2, "shell.rm": 2, "git.reset_hard": 2 })) {
+    const d = decide(new KingpinAuthority(), signal(0), { ...request, tool });
+    assert.equal(d.tool_floor_gate, floor);
+    assert.equal(d.effective_gate, floor);
+    assert.equal(d.outcome, ["allow", "constrain", "deny"][floor]);
+  }
+});
+
+test("token revocation is individual; capability revocation is context-scoped, never global", () => {
+  const a = new KingpinAuthority(); decide(a);
+  const other = { ...request, session_id: "other" }; decide(a, signal(0), other);
+  const first = issue(a), second = issue(a), isolated = issue(a, other);
+  a.revoke({ ...request, lease_token: first });
+  assert.equal(a.hasValidLease({ ...request, lease_token: first }), false);
+  assert.equal(a.hasValidLease({ ...request, lease_token: second }), true);
+  assert.equal(a.hasValidLease({ ...request, lease_token: second }), true); // reusable, not one-use nonce
+  a.revoke(request);
+  assert.equal(a.hasValidLease({ ...request, lease_token: second }), false);
+  assert.equal(a.hasValidLease({ ...other, lease_token: isolated }), true);
+  assert.throws(() => a.revoke({ ...request, global: true, tool: undefined }), /Specify/);
+  decide(a, signal(2, "QUARANTINE_THRESHOLD_REACHED"));
+  for (let i = 0; i < 6; i++) decide(a);
+  assert.equal(a.hasValidLease({ ...request, lease_token: first }), false);
+  assert.equal(a.hasValidLease({ ...request, lease_token: second }), false);
+  assert.equal(decide(a).reason, "capability_revoked");
+});
+
+test("consumed evaluation IDs are context-local and blocked requests consume them", () => {
+  const a = new KingpinAuthority();
+  const blocked = { ...request, tool: "fs.write" };
+  assert.equal(a.decide(signal(0), blocked, "once").outcome, "constrain");
+  assert.throws(() => a.decide(signal(0), { ...blocked, dry_run: true, diff: "diff" }, "once"), /already consumed/);
+  assert.equal(a.decide(signal(0), { ...request, channel_id: "other" }, "once").outcome, "allow");
+});
+
+test("quarantine and envelope denial precede human review", () => {
+  const a = new KingpinAuthority();
+  assert.equal(decide(a, signal(1, "LOW_CONFIDENCE"), { ...request, tool: "fs.delete" }).outcome, "deny");
+  decide(a, signal(2, "QUARANTINE_THRESHOLD_REACHED"));
+  assert.equal(decide(a, signal(1, "LOW_CONFIDENCE")).outcome, "quarantine");
+});
+
+test("gateway passes through Kingpin projections without recomputing policy", () => {
+  const d = decide(new KingpinAuthority(), signal(1));
+  const result = enforceAuthorityDecision(d);
+  assert.equal(result.response.authority_decision, d);
+  assert.equal(result.response.blocked, true);
+  for (const key of ["cde_gate", "tool_floor_gate", "effective_gate", "effective_gate_label",
+    "evidence_requirements", "missing_evidence", "authority_requirement", "reason"]) {
+    assert.deepEqual(result.response[key], d[key]);
+  }
+  assert.deepEqual(result.response.required_evidence, ["dry_run", "diff"]);
+  assert.deepEqual(enforceAuthorityDecision({ ...d, missing_evidence: [] }).response.required_evidence, []);
+  assert.throws(() => enforceAuthorityDecision({ ...d, schema_version: "2.0" }));
+  assert.throws(() => enforceAuthorityDecision({ ...d, outcome: "approve" }));
+});

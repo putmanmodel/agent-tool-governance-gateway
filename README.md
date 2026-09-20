@@ -79,3 +79,10 @@ CC BY-NC 4.0 — see [LICENSE](LICENSE).
 ## Contact
 
 Stephen A. Putman — putmanmodel@pm.me
+
+## v0.3 compatibility baseline
+
+See the [behavior contract and versioned boundary fields](docs/v0.3-behavior-contract.md)
+for regression coverage, schema scope, and current representation limits.
+The four [v1 boundary schemas](schemas/v1/) are descriptive and test-validated;
+they do not change runtime validation or authority policy.
