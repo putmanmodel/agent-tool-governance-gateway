@@ -1,6 +1,8 @@
 import crypto from "node:crypto";
 import { loadPolicy } from "./policy/loader.js";
 import { validatePolicy } from "./policy/validator.js";
+import { MemoryStateStore } from "./state/memory.js";
+import { assertStore } from "./state/interfaces.js";
 
 const LABELS = ["PASS", "EVIDENCE REQUIRED", "LEASE REQUIRED"];
 const LEVELS = ["full", "non_destructive", "read_only", "quarantined"];
@@ -52,13 +54,15 @@ function validateSignal(signal, context) {
 export class KingpinAuthority {
   #policy;
   #tools;
+  #store;
 
-  constructor({ clock = Date.now, policy = loadPolicy() } = {}) {
+  constructor({ clock = Date.now, policy = loadPolicy(), store = new MemoryStateStore() } = {}) {
     this.#policy = validatePolicy(policy);
     this.#tools = new Map(this.#policy.tools.map(tool => [tool.id, this.#policy.classes[tool.class]]));
     this.clock = clock;
-    this.states = new Map();
-    this.leases = new Map();
+    assertStore(store);
+    store.bindPolicy(crypto.createHash("sha256").update(canonical(this.#policy)).digest("hex"), [...this.#tools.keys()]);
+    this.#store = store;
   }
 
   // Configuration provenance for server-side audit; the v1 decision contract
@@ -67,13 +71,21 @@ export class KingpinAuthority {
     return Object.freeze({ schema_version: this.#policy.schema_version, policy_version: this.#policy.policy_version });
   }
 
-  _lookup(request, create = false) {
+  // Compatibility diagnostic used by the original regression suite; no mutable
+  // governance map is exposed to callers.
+  get states() { return Object.freeze({ size: this.#store.contextCount() }); }
+
+  _lookup(tx, request, create = false) {
     const context = contextFor(request);
     const key = canonical(context);
-    let state = this.states.get(key);
+    let state = tx.contexts.get(key);
     if (!state && create) {
-      state = { level: 0, clean: 0, revision: 0, revoked: new Set(), seen: new Set() };
-      this.states.set(key, state);
+      state = { level: 0, clean: 0, revision: 0 };
+      tx.contexts.create(key, state);
+    }
+    if (state) {
+      state.revoked = tx.revocations.list(key);
+      if ([...state.revoked].some(tool => !this.#tools.has(tool))) throw new Error("Invalid governance state: unknown revoked capability");
     }
     return { context, key, state };
   }
@@ -88,28 +100,25 @@ export class KingpinAuthority {
       clean_evaluations: state.clean, restoration_step_after: 2, revoked_tools: [...state.revoked].sort() };
   }
 
-  _revokeLeases(key, reason, tool) {
-    for (const lease of this.leases.values()) {
-      if (lease.key === key && (!tool || lease.tool === tool)) lease.revoked = reason;
-    }
-  }
-
   // Only the server supplies evaluation_id (the selected CDE event ID).
   decide(signal, request, evaluation_id) {
+    return this.#store.transaction(tx => this._decide(tx, signal, request, evaluation_id));
+  }
+
+  _decide(tx, signal, request, evaluation_id) {
     const context = contextFor(request);
     validateSignal(signal, context);
     if (!text(evaluation_id) || !text(request.tool)) throw new Error("Missing evaluation ID or tool");
-    const { key, state } = this._lookup(request, true);
+    const { key, state } = this._lookup(tx, request, true);
     const reasons = [];
-    if (state.seen.has(evaluation_id)) throw new Error("CDE evaluation already consumed");
+    if (!tx.evaluations.consume(key, evaluation_id)) throw new Error("CDE evaluation already consumed");
     {
-      state.seen.add(evaluation_id);
       const target = signal.reason_codes.includes("QUARANTINE_THRESHOLD_REACHED") ? 3 : signal.gate;
       if (target > state.level) {
         state.level = target;
         state.clean = 0;
         state.revision++;
-        this._revokeLeases(key, "ENVELOPE_CONTRACTED");
+        tx.leases.revokeContext(key, "ENVELOPE_CONTRACTED");
         reasons.push("ENVELOPE_CONTRACTED");
       } else if (signal.gate === 0 && !signal.deviation.active && state.level > 0) {
         state.clean++;
@@ -123,6 +132,8 @@ export class KingpinAuthority {
         state.clean = 0;
       }
     }
+
+    tx.contexts.save(key, state);
 
     // Unknown tools retain the legacy floor projection but never enter the
     // envelope. Request-supplied classification/requirements are not consulted.
@@ -143,7 +154,7 @@ export class KingpinAuthority {
       outcome = "human_review"; reason = "low_confidence_requires_human_review";
     } else if (missing.length) {
       outcome = "constrain"; reason = "gate_1_requires_dry_run_and_diff";
-    } else if (leaseRequired && !this.hasValidLease(request)) {
+    } else if (leaseRequired && !this._hasValidLease(tx, request)) {
       outcome = "deny"; reason = "gate_2_requires_valid_lease";
     } else if (leaseRequired) {
       reason = "gate_2_lease_valid";
@@ -160,38 +171,52 @@ export class KingpinAuthority {
   }
 
   issue(request) {
-    const { context, key, state } = this._lookup(request);
+    return this.#store.transaction(tx => this._issue(tx, request));
+  }
+
+  _issue(tx, request) {
+    const { context, key, state } = this._lookup(tx, request);
     const seconds = Number(request.seconds);
     if (!state || !this._tools(state).includes(request.tool)) throw new Error("Lease requires an evaluated context and capability in current envelope");
     if (!Number.isFinite(seconds) || seconds < .001 || seconds > 300) throw new Error("Lease duration must be 0.001–300 seconds");
     if (!request.args || typeof request.args !== "object" || Array.isArray(request.args)) throw new Error("Lease requires exact args object");
     const token = crypto.randomUUID();
     const expires_at_ms = this.clock() + Math.floor(seconds * 1000);
-    this.leases.set(token, { key, tool: request.tool, args: canonical(request.args), expires_at_ms, revoked: null });
+    tx.leases.insert(token, { key, tool: request.tool, args: canonical(request.args), expires_at_ms, revoked: null });
     return { lease_token: token, lease_id: crypto.createHash("sha256").update(token).digest("hex"),
       context, expires_at: new Date(expires_at_ms).toISOString(), issuer: "kingpin" };
   }
 
   hasValidLease(request) {
-    const { key, state } = this._lookup(request);
-    const lease = this.leases.get(request.lease_token);
+    return this.#store.transaction(tx => this._hasValidLease(tx, request));
+  }
+
+  _hasValidLease(tx, request) {
+    const { key, state } = this._lookup(tx, request);
+    const lease = tx.leases.get(request.lease_token);
     return Boolean(state && lease && !lease.revoked && lease.expires_at_ms > this.clock()
       && lease.key === key && lease.tool === request.tool && lease.args === canonical(request.args ?? {})
       && this._tools(state).includes(request.tool));
   }
 
   revoke(request) {
-    const { context, key, state } = this._lookup(request);
+    return this.#store.transaction(tx => this._revoke(tx, request));
+  }
+
+  _revoke(tx, request) {
+    const { context, key, state } = this._lookup(tx, request);
     if (!state) throw new Error("Unknown authority context");
     if (request.lease_token) {
-      const lease = this.leases.get(request.lease_token);
+      const lease = tx.leases.get(request.lease_token);
       if (!lease || lease.key !== key) throw new Error("Unknown lease in context");
-      lease.revoked = "EXPLICIT_REVOCATION";
+      tx.leases.revoke(request.lease_token, "EXPLICIT_REVOCATION");
     } else if (this.#tools.has(request.tool)) {
       state.revoked.add(request.tool);
-      this._revokeLeases(key, "CAPABILITY_REVOKED", request.tool);
+      tx.revocations.add(key, request.tool);
+      tx.leases.revokeContext(key, "CAPABILITY_REVOKED", request.tool);
     } else throw new Error("Specify lease_token or known tool");
     state.revision++;
+    tx.contexts.save(key, state);
     return { revoked: true, context, target: request.lease_token
       ? { lease_id: crypto.createHash("sha256").update(request.lease_token).digest("hex") }
       : { tool: request.tool }, capability_envelope: this._envelope(state) };

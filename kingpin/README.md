@@ -1,6 +1,6 @@
 # Kingpin runtime
 
-A transport-independent, in-memory Node ES module. It uses only Node built-ins, not Express, the gateway, Python, or CDE implementation code.
+A transport-independent Node ES module with memory-default and opt-in SQLite state. It uses only Node built-ins, not Express, the gateway, Python, or CDE implementation code.
 
 ```js
 import { KingpinAuthority } from './kingpin/index.js';
@@ -13,18 +13,20 @@ const decision = kingpin.decide(governanceSignal, authorityRequest, evaluationId
 Its existing argument order and `AuthorityDecision` output are unchanged.
 The trusted caller supplies the selected CDE event ID separately from the
 request. CDE supplies requirements, not grants. Keep one runtime instance for
-related requests: envelopes, leases, revocations and consumed IDs live in that
-instance's memory. A new instance starts with fresh state. `clock` may be
+related requests. Envelopes, leases, revocations and consumed IDs live behind the
+injected state store. The default is a fresh memory store; an explicitly reopened
+SQLite store retains governance state across processes. `clock` may be
 injected in the constructor for deterministic expiry tests.
 
 Existing control-plane operations remain `issue(request)`, `revoke(request)`
 and `hasValidLease(request)`. Lease issuance returns the existing opaque handle;
-no persistence, signatures, nonce revocation or global revocation are added.
+no signing changes, nonce revocation or global revocation are added.
 Calls are synchronous; the gateway still serializes CDE evaluation through
 enforcement, together with issuance and revocation, to preserve ordering.
 
 - `index.js`: public export.
-- `authority.js`: authority decisions, signal validation and in-memory state.
+- `authority.js`: authority decisions and signal validation through state interfaces.
+- `state/`: memory and optional SQLite stores; see the [state guide](state/README.md).
 - `policy/`: validated local JSON tool configuration; see the [policy guide](policy/README.md).
 - `package.json`: explicit ES module boundary, no external dependencies.
 - `../gateway_node/kingpin/authority.js`: compatibility re-export only.
