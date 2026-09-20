@@ -108,7 +108,7 @@ tool request → CDE → governance_signal v1.0
              → authority_decision v1.0 → gateway enforcement
 ```
 
-`gateway_node/kingpin/authority.js` owns the capability envelope, tool policy,
+`kingpin/authority.js` owns the capability envelope, tool policy,
 evidence decisions, scoped leases, revocation and recovery state.
 `gateway_node/enforcement.js` only maps the returned outcome to HTTP status and
 execution eligibility. `server.js` supplies the selected CDE event ID, calls both
