@@ -6,11 +6,16 @@ operators and evaluators. These are separate outputs: this versioned product
 stream adds no fields to CDE JSONL, legacy gateway decision JSONL, frozen fixtures,
 or `schemas/v1` boundary payloads.
 
-Repository scope: this checkout has `src/audit/logger.py`, the 32-event
-`tests/legacy_events.json` fixture, and the frozen authority oracle. It contains no
-separately identified Paper 9 canonical envelope/schema. Compatibility tests lock
-the available legacy records and writer; they cannot certify a separate Paper 9
-artifact that is absent. No inferred conformance format or adapter was invented.
+The canonical conformance envelope has now been checked against the Paper 9
+v0.2 PDF supplied for verification (§3.1, pages 3–4): exactly `decision`, `demo_id`, `evidence`,
+`fixture_hash`, `fixture_path`, `mode`, `normative_ids`, `pass`, `rationale`,
+`timestamp_utc`. **Result: no runtime producer of that envelope exists in this
+checkout.** CDE and gateway JSONL are richer operational records and must not be
+labeled canonical. Product events remain in their separate audit repository.
+The new exact-key tests include explicitly synthetic structural examples; they
+do not certify a missing canonical producer. See the
+[verification report](../../docs/paper9-conformance-verification.md) for producer
+locations, mismatches, separation tests and validation results.
 
 ## Schema and correlation
 

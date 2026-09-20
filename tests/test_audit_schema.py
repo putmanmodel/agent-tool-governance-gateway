@@ -1,4 +1,4 @@
-"""The new operational stream is separate from all frozen conformance data."""
+"""Product events are separate from frozen legacy operational records."""
 import copy
 import json
 from pathlib import Path
@@ -35,21 +35,21 @@ class AuditSchemaTests(unittest.TestCase):
             event = copy.deepcopy(self.events[0]); del event[key]
             self.assertFalse(self.validator.is_valid(event), key)
 
-    def test_existing_jsonl_writer_and_frozen_envelope_coexist_with_product_events(self):
+    def test_existing_jsonl_writer_and_legacy_cde_records_coexist_with_product_events(self):
         frozen = json.loads((ROOT / 'tests/legacy_events.json').read_text())
         self.assertEqual(len(frozen), 32)
         with tempfile.TemporaryDirectory() as directory:
-            canonical = Path(directory) / 'canonical.jsonl'
+            legacy = Path(directory) / 'legacy_cde.jsonl'
             product = Path(directory) / 'product.jsonl'
-            logger = AuditLogger(str(canonical))
+            logger = AuditLogger(str(legacy))
             for record in frozen:
                 logger.append(record)
-            before = canonical.read_bytes()
+            before = legacy.read_bytes()
             product.write_text(''.join(json.dumps(event) + '\n' for event in self.events))
-            self.assertEqual(canonical.read_bytes(), before)
+            self.assertEqual(legacy.read_bytes(), before)
             self.assertEqual(before, ''.join(json.dumps(row, ensure_ascii=False) + '\n'
                                              for row in frozen).encode('utf-8'))
-            self.assertEqual([json.loads(line) for line in canonical.read_text().splitlines()], frozen)
+            self.assertEqual([json.loads(line) for line in legacy.read_text().splitlines()], frozen)
             for row in frozen:
                 self.assertNotIn('request_id', row)
                 self.assertNotIn('principal_id', row)

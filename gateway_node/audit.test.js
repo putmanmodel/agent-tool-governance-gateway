@@ -27,7 +27,7 @@ const metadata = request_id => ({ request_id, principal_id: 'trusted-admin' });
 const body = { ...request, plan_id: 'p', user_request: 'list files' };
 
 for (const kind of ['memory', 'sqlite']) {
-  test(`${kind}: authenticated allow/deny/review chains correlate, omit secrets and retain canonical projection`, async t => {
+  test(`${kind}: authenticated allow/deny/review chains correlate, omit secrets and retain legacy projection`, async t => {
     for (const [gate, reason, outcome, status, enforcement] of [[0, undefined, 'allow', 200, 'allowed'],
       [2, undefined, 'deny', 403, 'denied'], [1, 'LOW_CONFIDENCE', 'human_review', 428, 'review']]) {
       const { runtime } = setup(t, kind), logs = [];
@@ -296,3 +296,34 @@ test('concurrent SQLite control operations have one committed sequence and match
   assert.deepEqual(events.map(e => e.sequence), [1, 2]);
   assert.deepEqual(events.map(e => e.lease_epoch), [1, 2]);
 });
+
+for (const kind of ['memory', 'sqlite']) {
+  test(`${kind}: arbitrary product fields cannot leak into the separate legacy JSONL record`, async t => {
+    const { runtime, store } = setup(t, kind), logs = [];
+    const app = createGatewayApp({ authentication, authority: runtime, logDecision: record => logs.push(record),
+      evaluateTurn: async () => ({ governance_signal: signal(0), top_event: { event_id: 'separation' } }) });
+    const response = await dispatch(app, '/tool', body);
+    assert.equal(response.statusCode, 200);
+    const requestId = response.headers['X-Request-ID'];
+    const before = JSON.stringify(logs);
+    const original = runtime.getEventsForRequest(requestId);
+    const detached = runtime.getEventsForRequest(requestId);
+    for (const record of detached) {
+      record.arbitrary_product_field = { nested: ['extra'] };
+      record.fixture_hash = 'not-a-conformance-fixture';
+      record.decision = 'not-a-governance-decision';
+    }
+    assert.equal(JSON.stringify(logs), before);
+    assert.deepEqual(runtime.getEventsForRequest(requestId), original);
+    const { sequence, ...persisted } = original[0];
+    for (const extra of [{ arbitrary_product_field: true }, { fixture_hash: 'extra' }]) {
+      assert.throws(() => store.transaction(tx => tx.audit.append({ ...persisted, ...extra })), /audit event/);
+    }
+    assert.deepEqual(runtime.getEventsForRequest(requestId), original);
+    assert.equal(JSON.stringify(logs), before);
+    // This is a legacy operational record, not the supplied Paper 9 envelope.
+    const paper9 = ['decision', 'demo_id', 'evidence', 'fixture_hash', 'fixture_path',
+      'mode', 'normative_ids', 'pass', 'rationale', 'timestamp_utc'];
+    assert.deepEqual(Object.keys(logs[0]).filter(key => paper9.includes(key)), ['decision']);
+  });
+}
