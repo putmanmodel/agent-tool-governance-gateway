@@ -9,11 +9,12 @@ or `schemas/v1` boundary payloads.
 The canonical conformance envelope has now been checked against the Paper 9
 v0.2 PDF supplied for verification (§3.1, pages 3–4): exactly `decision`, `demo_id`, `evidence`,
 `fixture_hash`, `fixture_path`, `mode`, `normative_ids`, `pass`, `rationale`,
-`timestamp_utc`. **Result: no runtime producer of that envelope exists in this
-checkout.** CDE and gateway JSONL are richer operational records and must not be
+`timestamp_utc`. **Result at verification: no producer of that envelope existed in this
+checkout.** A subsequent separate [proof/break harness](../../conformance/README.md)
+now emits canonical records; the runtime still does not. CDE and gateway JSONL are richer operational records and must not be
 labeled canonical. Product events remain in their separate audit repository.
-The new exact-key tests include explicitly synthetic structural examples; they
-do not certify a missing canonical producer. See the
+The original verification tests used explicitly synthetic structural examples.
+The subsequent harness integration tests now verify real canonical emissions. See the
 [verification report](../../docs/paper9-conformance-verification.md) for producer
 locations, mismatches, separation tests and validation results.
 

@@ -95,3 +95,8 @@ authority administration and reviewer access have separate permissions.
 See [authentication setup and usage](kingpin/auth/README.md). The merged demo
 creates temporary credentials automatically. Kingpin authority semantics and
 frozen v1 payloads remain unchanged.
+
+Paper 9 proof/break evaluation is available separately via
+`npm --prefix gateway_node run conformance`. See the
+[conformance harness](conformance/README.md) for its registry, coverage limits and
+canonical JSONL artifact. Runtime operational logs retain their existing format.

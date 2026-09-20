@@ -27,3 +27,6 @@ gateway_node/.env
 
 # Local authentication configuration (never commit real credentials)
 *.auth.local.json
+
+# Generated conformance runs; checked-in sample lives outside this directory
+conformance/output/

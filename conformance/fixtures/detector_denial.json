@@ -1,0 +1,15 @@
+{
+  "clock_ms": 1700000000000,
+  "request": {
+    "tool": "fs.delete",
+    "args": {
+      "path": "/project"
+    },
+    "session_id": "conformance",
+    "speaker_id": "actor",
+    "channel_id": "channel",
+    "scene_id": "scene"
+  },
+  "calm_text": "Please list the project files.",
+  "scenario": "non_destructive"
+}

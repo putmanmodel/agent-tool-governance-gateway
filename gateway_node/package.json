@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "node server.js",
     "demo": "node demo.js",
-    "test": "node --test *.test.js"
+    "test": "node --test *.test.js",
+    "conformance": "node ../conformance/cli.mjs"
   },
   "dependencies": {
     "express": "^4.21.2"

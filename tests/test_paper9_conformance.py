@@ -1,10 +1,11 @@
-"""Supplied Paper 9 key contract; no canonical runtime producer exists here.
+"""Paper 9 specification checks plus the separate harness sample artifact.
 
 Structural exemplars below test the exact-key check and generic JSONL writer.
 They are not records emitted by a Paper 9 demo and do not establish conformance
 of the existing CDE/gateway operational streams.
 """
 import copy
+import hashlib
 import json
 from pathlib import Path
 import subprocess
@@ -116,3 +117,20 @@ class Paper9EnvelopeVerificationTests(unittest.TestCase):
             self.assertEqual(set(record) & PAPER9_KEYS, {'decision', 'evidence'})
             with self.assertRaises(ValueError):
                 require_exact_paper9_keys(record)
+
+
+class Paper9HarnessSampleTests(unittest.TestCase):
+    def test_generated_harness_sample_matches_contract_and_actual_fixture_bytes(self):
+        records = [json.loads(line) for line in (ROOT / 'conformance/sample.jsonl').read_text().splitlines()]
+        cases = json.loads((ROOT / 'conformance/cases.json').read_text())
+        self.assertEqual([r['demo_id'] for r in records], [case['demo_id'] for case in cases])
+        for record, case in zip(records, cases):
+            require_exact_paper9_keys(record)
+            self.assertEqual(set(record), PAPER9_KEYS)
+            self.assertIn(record['decision'], SPECIFICATION['canonical_decisions'])
+            self.assertIs(record['pass'], True)
+            self.assertEqual(record['mode'], case['mode'])
+            self.assertEqual(record['normative_ids'], case['normative_ids'])
+            self.assertEqual(record['fixture_path'], case['fixture_path'])
+            digest = hashlib.sha256((ROOT / case['fixture_path']).read_bytes()).hexdigest()
+            self.assertEqual(record['fixture_hash'], 'sha256:' + digest)

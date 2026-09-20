@@ -1,5 +1,9 @@
 # Paper 9 conformance verification
 
+Historical verification result: the absence documented below was accurate at that
+step. A subsequent, separate [proof/break harness](../conformance/README.md) now
+provides the explicit canonical emitter. Operational logs remain unchanged.
+
 The canonical conformance envelope has now been checked against the Paper 9
 Reference Architecture contract supplied by the user for this verification.
 **Result: canonical conformance is not established. No canonical producer exists
