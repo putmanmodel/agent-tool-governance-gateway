@@ -1,3 +1,4 @@
+import { event, correlation, bindingHash } from './audit/events.js';
 import crypto from "node:crypto";
 import { loadPolicy } from "./policy/loader.js";
 import { validatePolicy } from "./policy/validator.js";
@@ -55,11 +56,13 @@ export class KingpinAuthority {
   #policy;
   #tools;
   #store;
+  #auditClock;
 
-  constructor({ clock = Date.now, policy = loadPolicy(), store = new MemoryStateStore() } = {}) {
+  constructor({ clock = Date.now, auditClock = Date.now, policy = loadPolicy(), store = new MemoryStateStore() } = {}) {
     this.#policy = validatePolicy(policy);
     this.#tools = new Map(this.#policy.tools.map(tool => [tool.id, this.#policy.classes[tool.class]]));
     this.clock = clock;
+    this.#auditClock = auditClock;
     assertStore(store);
     store.bindPolicy(crypto.createHash("sha256").update(canonical(this.#policy)).digest("hex"), [...this.#tools.keys()]);
     this.#store = store;
@@ -100,12 +103,71 @@ export class KingpinAuthority {
       clean_evaluations: state.clean, restoration_step_after: 2, revoked_tools: [...state.revoked].sort() };
   }
 
-  // Only the server supplies evaluation_id (the selected CDE event ID).
-  decide(signal, request, evaluation_id) {
-    return this.#store.transaction(tx => this._decide(tx, signal, request, evaluation_id));
+  _audit(tx, type, audit, request = {}, fields = {}) {
+    const tool = this.#policy.tools.find(tool => tool.id === request.tool);
+    tx.audit.append(event(type, audit, {
+      policy_version: this.#policy.policy_version,
+      agent_id: request.speaker_id ?? null,
+      context: request.speaker_id && request.channel_id ? contextFor(request) : null,
+      tool_id: request.tool ?? null, tool_class: tool?.class ?? null,
+      arguments_hash: request.args === undefined ? null : bindingHash(request.args),
+      ...fields,
+    }, this.#auditClock));
   }
 
-  _decide(tx, signal, request, evaluation_id) {
+  recordAuthenticationRejection(auditContext, reason) {
+    if (!['AUTHENTICATION_REQUIRED', 'FORBIDDEN'].includes(reason)) throw new Error('Unsupported authentication rejection');
+    this.#store.transaction(tx => this._audit(tx, 'authentication.rejected', correlation(auditContext), {},
+      { outcome: 'rejected', reason_codes: [reason] }));
+  }
+
+  getEventsForRequest(requestId) { return this.#store.getEventsForRequest(requestId); }
+
+  // Enforcement is a separate fact supplied by the transport, never authority policy.
+  recordEnforcement(request, auditContext, { outcome, evaluation_id = null, reason_codes = [] }) {
+    const types = { allow: 'allowed', human_review: 'review', deny: 'denied',
+      constrain: 'denied', quarantine: 'denied', failed: 'failed' };
+    if (!types[outcome]) throw new Error('Unknown enforcement outcome');
+    const audit = correlation(auditContext);
+    this.#store.transaction(tx => this._audit(tx, `tool.enforcement.${types[outcome]}`, audit,
+      request, { outcome, evaluation_id, reason_codes }));
+  }
+
+  // Only the server supplies evaluation_id (the selected CDE event ID).
+  decide(signal, request, evaluation_id, auditContext) {
+    const audit = correlation(auditContext);
+    audit.decision_id ??= crypto.randomUUID();
+    return this.#store.transaction(tx => {
+      const previous = this._lookup(tx, request).state;
+      this._audit(tx, 'cde.signal.created', audit, request, { evaluation_id,
+        gate: signal.gate, signal: { gate: signal.gate, reason_codes: signal.reason_codes,
+          deviation: Object.fromEntries(['severity', 'ema_severity', 'confidence', 'active', 'enter', 'exit', 'vector']
+            .map(key => [key, signal.deviation?.[key]])) } });
+      this._audit(tx, 'authority.requested', audit, request, { evaluation_id });
+      let lease_check = null;
+      const decision = this._decide(tx, signal, request, evaluation_id, result => { lease_check = result.reason; });
+      const fields = { evaluation_id,
+        requirements: { evidence: decision.evidence_requirements, missing_evidence: decision.missing_evidence,
+          authority: decision.authority_requirement, tool_floor_gate: decision.tool_floor_gate },
+        outcome: decision.outcome, reason_codes: decision.reason_codes,
+        envelope: decision.capability_envelope, gate: decision.effective_gate, lease_check,
+        lease_id: tx.leases.get(request.lease_token)?.nonce ?? null };
+      for (const [reason, type] of [['ENVELOPE_CONTRACTED', 'authority.contracted'],
+        ['ENVELOPE_RESTORED_ONE_STEP', 'authority.restored']]) {
+        if (decision.reason_codes.includes(reason)) this._audit(tx, type, audit, request, fields);
+      }
+      if ((previous?.clean ?? 0) !== decision.capability_envelope.clean_evaluations
+          || decision.reason_codes.includes('ENVELOPE_RESTORED_ONE_STEP')) {
+        this._audit(tx, 'recovery.stage_changed', audit, request, fields);
+      }
+      if (lease_check && lease_check !== 'ok') this._audit(tx, 'lease.rejected', audit, request, fields);
+      this._audit(tx, 'authority.decision', audit, request, fields);
+      if (decision.outcome === 'human_review') this._audit(tx, 'review.requested', audit, request, fields);
+      return decision;
+    });
+  }
+
+  _decide(tx, signal, request, evaluation_id, leaseObserved = () => {}) {
     const context = contextFor(request);
     validateSignal(signal, context);
     if (!text(evaluation_id) || !text(request.tool)) throw new Error("Missing evaluation ID or tool");
@@ -156,6 +218,7 @@ export class KingpinAuthority {
       outcome = "constrain"; reason = "gate_1_requires_dry_run_and_diff";
     } else if (leaseRequired) {
       const leaseValidation = this._validateLease(tx, request);
+      leaseObserved(leaseValidation);
       if (!leaseValidation.valid) {
         // Keep the v1 wire reason; detailed reasons are available through validateLease.
         outcome = "deny"; reason = "gate_2_requires_valid_lease";
@@ -172,8 +235,14 @@ export class KingpinAuthority {
     };
   }
 
-  issue(request) {
-    return this.#store.transaction(tx => this._issue(tx, request));
+  issue(request, auditContext) {
+    const audit = correlation(auditContext);
+    return this.#store.transaction(tx => {
+      const lease = this._issue(tx, request);
+      this._audit(tx, 'lease.issued', audit, request, { lease_id: lease.lease_id,
+        lease_epoch: tx.leaseEpoch.current(), expires_at_utc: lease.expires_at, outcome: 'issued' });
+      return lease;
+    });
   }
 
   _issue(tx, request) {
@@ -216,20 +285,38 @@ export class KingpinAuthority {
   }
 
   // Trusted control-plane APIs only: no new gateway routes or request-selected epochs.
-  revokeLeaseNonce(nonce) {
+  revokeLeaseNonce(nonce, auditContext) {
+    const audit = correlation(auditContext);
     return this.#store.transaction(tx => {
       if (!text(nonce) || !tx.leases.getByNonce(nonce)) throw new Error("Unknown lease nonce");
       tx.nonceRevocations.add(nonce);
+      const lease = tx.leases.getByNonce(nonce);
+      const context = JSON.parse(lease.key);
+      this._audit(tx, 'lease.revoked', audit, { tool: lease.tool }, { lease_id: nonce,
+        context, agent_id: context.speaker_id, lease_epoch: lease.issuance_epoch,
+        reason_codes: ['NONCE_REVOKED'] });
       return { revoked: true, lease_nonce: nonce };
     });
   }
 
-  revokeAllLeases() {
-    return this.#store.transaction(tx => ({ revoked: true, lease_epoch: tx.leaseEpoch.advance() }));
+  revokeAllLeases(auditContext) {
+    const audit = correlation(auditContext);
+    return this.#store.transaction(tx => {
+      const lease_epoch = tx.leaseEpoch.advance();
+      this._audit(tx, 'lease.epoch_advanced', audit, {}, { lease_epoch, reason_codes: ['EPOCH_ADVANCED'] });
+      return { revoked: true, lease_epoch };
+    });
   }
 
-  revoke(request) {
-    return this.#store.transaction(tx => this._revoke(tx, request));
+  revoke(request, auditContext) {
+    const audit = correlation(auditContext);
+    return this.#store.transaction(tx => {
+      const result = this._revoke(tx, request);
+      this._audit(tx, request.lease_token ? 'lease.revoked' : 'capability.revoked', audit, request,
+        { lease_id: result.target.lease_id ?? null, envelope: result.capability_envelope,
+          reason_codes: [request.lease_token ? 'EXPLICIT_REVOCATION' : 'CAPABILITY_REVOKED'] });
+      return result;
+    });
   }
 
   _revoke(tx, request) {

@@ -55,6 +55,7 @@ provides six narrow repositories, valid only during the callback:
 | contexts | get, create, save | envelope level, consecutive-clean counter, revision |
 | evaluations | consume | context-local set of consumed CDE event IDs |
 | revocations | list, add | persistent context-local revoked tool IDs |
+| audit | append | immutable product event; ordered sequence assigned by storage |
 | leases | get, getByNonce, insert, revoke, revokeContext | opaque token, nonce, issuance epoch, context key, tool, canonical args, expiry, legacy revocation reason |
 | leaseEpoch | current, advance | store-wide monotonic lease epoch (v0.4) |
 | nonceRevocations | has, add | permanent individually revoked lease identities (v0.4) |
@@ -75,7 +76,8 @@ decisions. Existing request, signal, lease and decision wire schemas are unchang
 ## SQLite schema and transactions
 
 `schema.sql` retains the original version-1 bootstrap. New stores apply it and
-`migrations/002_lease_revocation.sql` in one transaction to reach version **2**:
+`migrations/002_lease_revocation.sql`, then `migrations/003_governance_events.sql`
+in one transaction to reach version **3**:
 
 - `store_metadata`: singleton policy fingerprint and current lease epoch.
 - `contexts`: canonical composite context key, level, clean count, revision.
@@ -115,9 +117,11 @@ or create distributed enforcement guarantees.
 
 ## Startup, integrity and compatibility
 
-Creation and migration are transactional. Existing files must have version 1 or
-2 and the exact corresponding expected schema. Valid version-1 files migrate to
-version 2 with epoch zero and nonce = SHA-256(existing token), preserving prior
+Creation and migration are transactional. Existing files must have version 1, 2 or
+3 and the exact corresponding expected schema. Version 2 migrates to version 3
+by adding the separate append-only governance event store; existing state is
+preserved. See [governance events](../audit/README.md). Valid version-1 files migrate to
+version 2 (then version 3) with epoch zero and nonce = SHA-256(existing token), preserving prior
 revocations and all other governance facts. Future/unknown versions, extra schema objects, malformed or
 missing metadata, corrupt envelopes/leases and foreign-key violations are
 rejected, never deleted or migrated by guessing. The explicit version-1-to-2
@@ -158,3 +162,7 @@ state tests), **7 Python tests passed** (including boundary schemas and the
 unchanged 32-event baseline), **all merged HTTP demo assertions passed**,
 **standalone demo passed**, and **git diff --check passed**. The existing gateway,
 CDE, frozen decision fixtures and public schemas were not modified.
+
+Current schema: **3**. Required governance events commit atomically with state.
+`getEventsForRequest(requestId)` queries ordered detached records independently of
+authority evaluation. [Audit contract and failure semantics](../audit/README.md).

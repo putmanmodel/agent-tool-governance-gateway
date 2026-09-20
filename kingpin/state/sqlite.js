@@ -1,3 +1,4 @@
+import { validateEvent } from '../audit/events.js';
 import crypto from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
 import { readFileSync, openSync, closeSync } from 'node:fs';
@@ -5,6 +6,7 @@ import { check, validContext, validLease, validEpoch } from './interfaces.js';
 
 const schema = readFileSync(new URL('./schema.sql', import.meta.url), 'utf8');
 const migration = readFileSync(new URL('./migrations/002_lease_revocation.sql', import.meta.url), 'utf8');
+const auditMigration = readFileSync(new URL('./migrations/003_governance_events.sql', import.meta.url), 'utf8');
 const nonceForToken = token => crypto.createHash('sha256').update(token).digest('hex');
 const schemaQuery = "SELECT type, name, tbl_name, sql FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%' ORDER BY name";
 const reference = new DatabaseSync(':memory:');
@@ -13,6 +15,8 @@ const expectedSchemas = { 1: JSON.stringify(reference.prepare(schemaQuery).all()
 reference.function('kingpin_lease_nonce', nonceForToken);
 reference.exec(migration);
 expectedSchemas[2] = JSON.stringify(reference.prepare(schemaQuery).all());
+reference.exec(auditMigration);
+expectedSchemas[3] = JSON.stringify(reference.prepare(schemaQuery).all());
 reference.close();
 
 export class SQLiteStateStore {
@@ -42,13 +46,17 @@ export class SQLiteStateStore {
           this.#db.function('kingpin_lease_nonce', nonceForToken);
           this.#db.exec(migration);
         }
+        if (this.#db.prepare('PRAGMA user_version').get().user_version === 2) {
+          this.#verify(2);
+          this.#db.exec(auditMigration);
+        }
         this.#verify();
         this.#db.exec('COMMIT');
       } catch (error) { this.#db.exec('ROLLBACK'); throw error; }
     } catch (error) { this.#db?.close(); this.#db = undefined; throw error; }
   }
 
-  #verify(version = 2) {
+  #verify(version = 3) {
     check(this.#db.prepare('PRAGMA user_version').get().user_version === version, 'unsupported SQLite schema version');
     check(JSON.stringify(this.#db.prepare(schemaQuery).all()) === expectedSchemas[version], 'incompatible SQLite schema');
     check(this.#db.prepare('PRAGMA quick_check').all().every(row => row.quick_check === 'ok'), 'SQLite integrity check failed');
@@ -56,7 +64,7 @@ export class SQLiteStateStore {
     const metadata = this.#db.prepare('SELECT * FROM store_metadata').all();
     check(metadata.length === 1 && metadata[0].singleton === 1, 'missing store metadata');
     const fingerprint = metadata[0].policy_fingerprint;
-    if (version === 2) validEpoch(metadata[0].lease_epoch);
+    if (version >= 2) validEpoch(metadata[0].lease_epoch);
     check(fingerprint === null || /^[a-f0-9]{64}$/.test(fingerprint), 'invalid policy fingerprint');
     if (this.#fingerprint !== undefined) check(fingerprint === this.#fingerprint, 'policy mismatch');
     const rows = this.#db.prepare('SELECT * FROM contexts').all();
@@ -64,12 +72,19 @@ export class SQLiteStateStore {
     for (const row of rows) validContext(row.context_key, row);
     for (const row of this.#db.prepare('SELECT * FROM leases').all()) {
       validLease(row, { legacy: version === 1 });
-      if (version === 2) {
+      if (version >= 2) {
         check(row.nonce === nonceForToken(row.token), 'lease nonce identity mismatch');
         check(row.issuance_epoch <= metadata[0].lease_epoch, 'future issuance epoch');
       }
       if (this.#toolIds) check(this.#toolIds.has(row.tool), "unknown leased capability");
       check(/^[a-f0-9-]{36}$/.test(row.token), 'invalid lease token');
+    }
+    if (version >= 3) {
+      for (const row of this.#db.prepare('SELECT * FROM governance_events ORDER BY sequence').all()) {
+        const record = validateEvent(JSON.parse(row.record));
+        check(record.event_id === row.event_id && record.request_id === row.request_id
+          && Number.isSafeInteger(row.sequence) && row.sequence > 0, 'invalid audit record binding');
+      }
     }
     if (this.#toolIds) {
       for (const row of this.#db.prepare('SELECT tool FROM capability_revocations').all()) {
@@ -115,6 +130,12 @@ export class SQLiteStateStore {
       const guard = fn => (...args) => { check(open, 'transaction ended'); return fn(...args); };
       const run = (sql, ...args) => this.#db.prepare(sql).run(...args);
       const tx = {
+        audit: { append: guard(record => {
+          validateEvent(record);
+          const inserted = run('INSERT INTO governance_events(event_id, request_id, record) VALUES (?, ?, ?)',
+            record.event_id, record.request_id, JSON.stringify(record));
+          check(Number.isSafeInteger(inserted.lastInsertRowid) && inserted.lastInsertRowid > 0, 'invalid audit sequence');
+        }) },
         contexts: {
           get: guard(key => this.#db.prepare('SELECT level, clean, revision FROM contexts WHERE context_key = ?').get(key)),
           create: guard((key, state) => {
@@ -165,6 +186,16 @@ export class SQLiteStateStore {
       };
       try { return work(tx); } finally { open = false; }
     });
+  }
+  getEventsForRequest(requestId) {
+    check(this.#db && !this.#active, 'store unavailable');
+    return this.#db.prepare('SELECT * FROM governance_events WHERE request_id = ? ORDER BY sequence')
+      .all(requestId).map(row => {
+        const record = validateEvent(JSON.parse(row.record));
+        check(record.event_id === row.event_id && record.request_id === row.request_id
+          && Number.isSafeInteger(row.sequence) && row.sequence > 0, 'invalid audit record binding');
+        return { ...record, sequence: row.sequence };
+      });
   }
   contextCount() { return this.#transaction(() => this.#db.prepare('SELECT count(*) AS count FROM contexts').get().count); }
   close() { this.#db?.close(); this.#db = undefined; }

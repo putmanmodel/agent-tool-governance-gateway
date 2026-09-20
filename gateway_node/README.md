@@ -61,3 +61,7 @@ Gateway audit records append to `logs/gateway_decisions.jsonl` and include both
 `governance_signal` and `authority_decision`, plus original evidence/provenance and
 compatibility fields. The gateway requires the warm service and has no stateless
 fallback. CDE's 32-event regression baseline remains unchanged.
+
+Governed HTTP requests now return an `X-Request-ID` header for the separate
+[governance event stream](../kingpin/audit/README.md). Query it through the trusted
+Kingpin runtime API; no public audit endpoint or tool-execution claim is added.

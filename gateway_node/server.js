@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import express from "express";
 import fs from "node:fs";
 import path from "node:path";
@@ -38,6 +39,16 @@ export function createGatewayApp({
 } = {}) {
   const app = express();
   const authenticatedRequests = new WeakMap();
+  function auditContext(req, res) {
+    req.auditContext ??= { request_id: crypto.randomUUID(), principal_id: null,
+      decision_id: null, redact: record => authentication.redact(record) };
+    res.set?.('X-Request-ID', req.auditContext.request_id);
+    return req.auditContext;
+  }
+  function authenticationRejected(req, res, status) {
+    const context = auditContext(req, res);
+    try { authority.recordAuthenticationRejection(context, status === 401 ? 'AUTHENTICATION_REQUIRED' : 'FORBIDDEN'); } catch {}
+  }
   function authenticateRequest(req) {
     if (!authenticatedRequests.has(req)) {
       authenticatedRequests.set(req, authentication.authenticate(req.headers?.authorization));
@@ -47,7 +58,10 @@ export function createGatewayApp({
   // Reject unauthenticated callers before parsing any operational payload.
   app.use((req, res, next) => {
     try { authenticateRequest(req); next(); }
-    catch { res.status(401).json({ error: "Authentication required" }); }
+    catch {
+      authenticationRejected(req, res, 401);
+      res.status(401).json({ error: "Authentication required" });
+    }
   });
   app.use(express.json({ limit: "1mb" }));
   // Serialize this in-memory demo's evaluation → authority → enforcement sequence.
@@ -62,6 +76,9 @@ export function createGatewayApp({
       try {
         await handler(req, res);
       } catch (err) {
+        if (req.governedTool) {
+          try { authority.recordEnforcement({}, req.auditContext, { outcome: 'failed', reason_codes: ['RUNTIME_FAILURE'] }); } catch {}
+        }
         if (!res.headersSent) res.status(500).json({ error: "Operation failed" });
       } finally {
         // Do not release on client disconnect while evaluation is still running.
@@ -70,12 +87,14 @@ export function createGatewayApp({
     };
   }
 
-  // Authentication and ownership are checked before CDE calls, queueing or state access.
+  // Authentication and ownership precede CDE and authority access; refusals append audit evidence only.
   function protectedRoute(permission, handler) {
     const execute = serialized(handler);
     return async (req, res) => {
       try {
+        const context = auditContext(req, res);
         const principal = authenticateRequest(req);
+        context.principal_id = principal.principal_id;
         authentication.authorize(principal, permission, req.body);
         if (permission === "runtime.evaluate" && req.body?.lease_token) {
           authentication.authorize(principal, "runtime.use_lease", req.body);
@@ -83,6 +102,7 @@ export function createGatewayApp({
         req.authPrincipal = principal;
       } catch (error) {
         const status = error instanceof AccessError ? error.status : 401;
+        authenticationRejected(req, res, status);
         res.status(status).json({ error: status === 401 ? "Authentication required" : "Forbidden" });
         return;
       }
@@ -104,7 +124,7 @@ export function createGatewayApp({
 
   app.post("/lease", protectedRoute("authority.issue_lease", (req, res) => {
     try {
-      const lease = authority.issue(req.body || {});
+      const lease = authority.issue(req.body || {}, req.auditContext);
       audit(req, { ts: new Date().toISOString(), endpoint: "/lease", issuer: "kingpin",
         context: lease.context, tool: req.body.tool, expires_at: lease.expires_at, lease_id: lease.lease_id });
       res.json(lease);
@@ -115,7 +135,7 @@ export function createGatewayApp({
 
   app.post("/revoke", protectedRoute("authority.revoke_lease", (req, res) => {
     try {
-      const result = authority.revoke(req.body || {});
+      const result = authority.revoke(req.body || {}, req.auditContext);
       audit(req, { ts: new Date().toISOString(), endpoint: "/revoke", ...result });
       res.json(result);
     } catch (err) {
@@ -124,6 +144,7 @@ export function createGatewayApp({
   }));
 
   app.post("/tool", protectedRoute("runtime.evaluate", async (req, res) => {
+    req.governedTool = true;
     const body = req.body || {};
     const {
       tool,
@@ -141,6 +162,7 @@ export function createGatewayApp({
     } = body;
 
     if (!tool || !plan_id || !user_request || !speaker_id || !channel_id) {
+      try { authority.recordEnforcement({}, req.auditContext, { outcome: 'failed', reason_codes: ['INVALID_REQUEST'] }); } catch {}
       res.status(400).json({
         error: "required fields: tool,args,plan_id,user_request,speaker_id,channel_id",
       });
@@ -151,6 +173,7 @@ export function createGatewayApp({
     try {
       evaluationInput = buildEvaluationInput(body, process.env.CDE_DEMO_FIXTURES === "1");
     } catch (err) {
+      try { authority.recordEnforcement({}, req.auditContext, { outcome: 'failed', reason_codes: ['INVALID_REQUEST'] }); } catch {}
       res.status(400).json({ error: "Operation rejected" });
       return;
     }
@@ -170,6 +193,7 @@ export function createGatewayApp({
     try {
       turn = await evaluateTurn(turnPacket);
     } catch (err) {
+      try { authority.recordEnforcement(body, req.auditContext, { outcome: 'failed', reason_codes: ['CDE_UNAVAILABLE'] }); } catch {}
       res.status(503).json({ error: "Evaluation unavailable" });
       return;
     }
@@ -177,9 +201,12 @@ export function createGatewayApp({
     const topEvent = turn.top_event || {};
     let enforcement;
     try {
-      const authorityDecision = authority.decide(turn.governance_signal, body, topEvent.event_id);
+      req.auditContext.decision_id = crypto.randomUUID();
+      const authorityDecision = authority.decide(turn.governance_signal, body, topEvent.event_id, req.auditContext);
       enforcement = enforceAuthorityDecision(authorityDecision);
     } catch (err) {
+      try { authority.recordEnforcement(body, req.auditContext, { outcome: 'failed',
+        evaluation_id: topEvent.event_id ?? null, reason_codes: ['AUTHORITY_OR_AUDIT_FAILURE'] }); } catch {}
       res.status(502).json({ error: "Authority operation failed" });
       return;
     }
@@ -213,11 +240,18 @@ export function createGatewayApp({
       ...response,
     });
 
+    try {
+      authority.recordEnforcement(body, req.auditContext, { outcome: response.authority_decision.outcome,
+        evaluation_id: response.authority_decision.evaluation_id, reason_codes: response.authority_decision.reason_codes });
+    } catch {
+      res.status(502).json({ error: "Authority operation failed" });
+      return;
+    }
     res.status(enforcement.status).json(response);
   }));
   app.post("/revoke/nonce", protectedRoute("authority.revoke_lease", (req, res) => {
     try {
-      const result = authority.revokeLeaseNonce(req.body?.lease_nonce);
+      const result = authority.revokeLeaseNonce(req.body?.lease_nonce, req.auditContext);
       audit(req, { ts: new Date().toISOString(), endpoint: "/revoke/nonce", ...result });
       res.json(result);
     } catch { res.status(400).json({ error: "Operation rejected" }); }
@@ -225,7 +259,7 @@ export function createGatewayApp({
 
   app.post("/revoke/all", protectedRoute("authority.revoke_all", (req, res) => {
     try {
-      const result = authority.revokeAllLeases();
+      const result = authority.revokeAllLeases(req.auditContext);
       audit(req, { ts: new Date().toISOString(), endpoint: "/revoke/all", ...result });
       res.json(result);
     } catch { res.status(400).json({ error: "Operation rejected" }); }
@@ -239,6 +273,11 @@ export function createGatewayApp({
   // Do not expose JSON parser stacks, internal errors or reflected payloads.
   app.use((err, req, res, next) => {
     if (res.headersSent) return next(err);
+    if (req.path === '/tool') {
+      const context = auditContext(req, res);
+      context.principal_id = authenticatedRequests.get(req)?.principal_id ?? null;
+      try { authority.recordEnforcement({}, context, { outcome: 'failed', reason_codes: ['INVALID_REQUEST'] }); } catch {}
+    }
     res.status(err.type === "entity.too.large" ? 413 : 400).json({ error: "Invalid request" });
   });
   return app;

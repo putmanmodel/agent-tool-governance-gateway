@@ -65,3 +65,7 @@ its original source. The subsequent policy step externalizes static configuratio
 while retaining the frozen decision oracle. No substantive authority logic was left behind or required a behavioral
 change. Gateway HTTP validation, CDE orchestration, request serialization, audit
 logging and mechanical enforcement remain transport responsibilities.
+
+The additional [v0.4 governance event stream](audit/README.md) records correlated
+requests, decisions, transitions and gateway enforcement. It uses SQLite schema 3
+when that store is selected; frozen boundary payloads and legacy JSONL are unchanged.

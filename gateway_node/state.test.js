@@ -132,7 +132,7 @@ test('closed stores, incompatible versions, damaged records and missing database
   assert.throws(() => new SQLiteStateStore({ filename }), /schema version/);
   const repair = new DatabaseSync(filename);
   assert.equal(repair.prepare('PRAGMA user_version').get().user_version, 99);
-  repair.exec('PRAGMA user_version = 2; PRAGMA ignore_check_constraints = ON; UPDATE contexts SET level = 99;'); repair.close();
+  repair.exec('PRAGMA user_version = 3; PRAGMA ignore_check_constraints = ON; UPDATE contexts SET level = 99;'); repair.close();
   assert.throws(() => new SQLiteStateStore({ filename }), /integrity|envelope/);
 });
 

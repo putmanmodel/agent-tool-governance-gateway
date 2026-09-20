@@ -1,6 +1,8 @@
+import { validateEvent } from '../audit/events.js';
 import { check, validContext, validLease, validEpoch } from './interfaces.js';
 
 export class MemoryStateStore {
+  #events = [];
   #contexts = new Map();
   #evaluations = new Map();
   #revocations = new Map();
@@ -18,6 +20,7 @@ export class MemoryStateStore {
   }
   transaction(work) {
     check(!this.#closed && !this.#active && this.#policy !== undefined, 'store unavailable or unbound');
+    const events = structuredClone(this.#events);
     const contexts = structuredClone(this.#contexts), evaluations = structuredClone(this.#evaluations);
     const revocations = structuredClone(this.#revocations), leases = structuredClone(this.#leases);
     let leaseEpoch = this.#leaseEpoch;
@@ -27,6 +30,11 @@ export class MemoryStateStore {
     const guard = fn => (...args) => { check(open, 'transaction ended'); return fn(...args); };
     const exists = key => check(contexts.has(key), 'missing context');
     const tx = {
+      audit: { append: guard(record => {
+        validateEvent(record);
+        check(!events.some(e => e.event_id === record.event_id), 'duplicate audit event');
+        events.push({ ...structuredClone(record), sequence: events.length + 1 });
+      }) },
       contexts: {
         get: guard(key => structuredClone(contexts.get(key))),
         create: guard((key, state) => {
@@ -81,11 +89,16 @@ export class MemoryStateStore {
     try {
       const result = work(tx);
       check(!result || typeof result.then !== 'function', 'async transaction not supported');
+      this.#events = events;
       this.#contexts = contexts; this.#evaluations = evaluations;
       this.#revocations = revocations; this.#leases = leases;
       this.#leaseEpoch = leaseEpoch; this.#nonceRevocations = nonceRevocations;
       return result;
     } finally { open = false; this.#active = false; }
+  }
+  getEventsForRequest(requestId) {
+    check(!this.#closed, 'store closed');
+    return structuredClone(this.#events.filter(event => event.request_id === requestId));
   }
   contextCount() { check(!this.#closed, 'store closed'); return this.#contexts.size; }
   close() { check(!this.#active, 'transaction active'); this.#closed = true; }

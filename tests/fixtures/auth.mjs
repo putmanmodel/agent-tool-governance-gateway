@@ -15,7 +15,7 @@ export const authentication = createAuthentication(config);
 export const headers = (role = 'agent') => ({ authorization: `Bearer ${tokens[role]}` });
 export async function dispatch(app, pathname, body, suppliedHeaders = headers()) {
   const route = app._router.stack.find(layer => layer.route?.path === pathname)?.route;
-  const response = { statusCode: 200, headersSent: false,
+  const response = { headers: {}, set(key, value) { this.headers[key] = value; return this; }, statusCode: 200, headersSent: false,
     status(code) { this.statusCode = code; return this; },
     json(value) { this.body = value; this.headersSent = true; return this; } };
   if (!route) return { ...response, statusCode: 404 };

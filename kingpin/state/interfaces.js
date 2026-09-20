@@ -2,9 +2,12 @@
  * Synchronous GovernanceStateStore contract (operational governance, not memory stratification).
  * bindPolicy(fingerprint, toolIds): bind once; refuse a different policy on subsequent use.
  * transaction(work): atomically commit all repositories below or throw/rollback.
+ * getEventsForRequest(requestId): detached ordered audit records; query failure does not block writes.
  * contextCount(): diagnostic count only. close(): release resources.
  *
  * work receives:
+ * audit.append(event): validate and append an immutable event in the same transaction.
+ * Stored/query records add a monotonically increasing sequence; no update/delete API.
  * contexts.get(key) -> {level, clean, revision} | undefined
  * contexts.create(key, state); contexts.save(key, state)
  * evaluations.consume(key, evaluationId) -> boolean (atomic insert-if-absent)

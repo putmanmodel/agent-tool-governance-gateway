@@ -20,7 +20,7 @@ const temporary = t => {
 
 for (const route of ['/turn', '/tool', '/lease', '/revoke', '/revoke/nonce', '/revoke/all', '/review/access']) {
   test(`${route}: absent, invalid and payload-only credentials fail before collaborators run`, async () => {
-    const authority = new Proxy({}, { get() { assert.fail('unauthenticated state access'); } });
+    const authority = new Proxy({}, { get(target, key) { if (key === 'recordAuthenticationRejection') return () => {}; assert.fail('unauthenticated authority access'); } });
     const app = createGatewayApp({ authentication, authority,
       evaluateTurn() { assert.fail('unauthenticated CDE access'); }, logDecision() { assert.fail('credential logging'); } });
     for (const credentialHeaders of [{}, { authorization: 'Bearer invalid' }, { authorization: `Bearer ${'x'.repeat(43)}` },
@@ -52,7 +52,7 @@ test('authenticated agents evaluate observations/tools and can present an existi
 });
 
 test('agent and reviewer cannot issue leases or perform any revocation', async () => {
-  const app = createGatewayApp({ authentication, authority: new Proxy({}, { get() { assert.fail('unauthorized authority call'); } }) });
+  const app = createGatewayApp({ authentication, authority: new Proxy({}, { get(target, key) { if (key === 'recordAuthenticationRejection') return () => {}; assert.fail('unauthorized authority call'); } }) });
   for (const role of ['agent', 'other', 'reviewer']) {
     for (const route of ['/lease', '/revoke', '/revoke/nonce', '/revoke/all']) {
       assert.equal((await dispatch(app, route, body, headers(role))).statusCode, 403);

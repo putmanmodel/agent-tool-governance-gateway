@@ -24,12 +24,12 @@ const template = new KingpinAuthority().decide(signal(0), request, 'template');
 
 test('gateway delegates once with original request, CDE signal and trusted event ID, then projects each outcome', async () => {
   for (const [outcome, status] of Object.entries({ allow: 200, constrain: 409, deny: 403, quarantine: 423, human_review: 428 })) {
-    const calls = [], logs = [];
+    const calls = [], logs = [], enforcementCalls = [];
     // Deliberately disagree with local tool-floor/CDE policy: transport must obey
     // its authority collaborator, not independently recompute that policy.
     const decision = { ...template, outcome, reason: 'authority-owned-reason' };
     const app = createGatewayApp({ authentication,
-      authority: { decide(...args) { calls.push(args); return decision; } },
+      authority: { recordEnforcement(...args) { enforcementCalls.push(args); }, decide(...args) { calls.push(args); return decision; } },
       evaluateTurn: async () => turn,
       logDecision: record => logs.push(record),
     });
@@ -44,6 +44,10 @@ test('gateway delegates once with original request, CDE signal and trusted event
     assert.equal(response.body.allow, outcome === 'allow');
     assert.equal(response.body.blocked, outcome !== 'allow');
     assert.equal(response.body.effective_gate, decision.effective_gate);
+    assert.equal(enforcementCalls.length, 1);
+    assert.equal(enforcementCalls[0][0], body);
+    assert.equal(enforcementCalls[0][1].principal_id, 'agent-principal');
+    assert.equal(enforcementCalls[0][2].outcome, outcome);
     assert.equal(logs.length, 1);
     assert.equal(logs[0].authority_decision, decision);
   }
