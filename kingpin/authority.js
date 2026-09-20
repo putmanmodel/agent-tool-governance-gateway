@@ -154,10 +154,12 @@ export class KingpinAuthority {
       outcome = "human_review"; reason = "low_confidence_requires_human_review";
     } else if (missing.length) {
       outcome = "constrain"; reason = "gate_1_requires_dry_run_and_diff";
-    } else if (leaseRequired && !this._hasValidLease(tx, request)) {
-      outcome = "deny"; reason = "gate_2_requires_valid_lease";
     } else if (leaseRequired) {
-      reason = "gate_2_lease_valid";
+      const leaseValidation = this._validateLease(tx, request);
+      if (!leaseValidation.valid) {
+        // Keep the v1 wire reason; detailed reasons are available through validateLease.
+        outcome = "deny"; reason = "gate_2_requires_valid_lease";
+      } else reason = "gate_2_lease_valid";
     }
     reasons.push(reason.toUpperCase());
     return {
@@ -181,22 +183,49 @@ export class KingpinAuthority {
     if (!Number.isFinite(seconds) || seconds < .001 || seconds > 300) throw new Error("Lease duration must be 0.001–300 seconds");
     if (!request.args || typeof request.args !== "object" || Array.isArray(request.args)) throw new Error("Lease requires exact args object");
     const token = crypto.randomUUID();
+    const nonce = crypto.createHash("sha256").update(token).digest("hex");
+    const issuance_epoch = tx.leaseEpoch.current();
     const expires_at_ms = this.clock() + Math.floor(seconds * 1000);
-    tx.leases.insert(token, { key, tool: request.tool, args: canonical(request.args), expires_at_ms, revoked: null });
-    return { lease_token: token, lease_id: crypto.createHash("sha256").update(token).digest("hex"),
+    tx.leases.insert(token, { key, tool: request.tool, args: canonical(request.args), expires_at_ms, revoked: null, nonce, issuance_epoch });
+    return { lease_token: token, lease_id: nonce,
       context, expires_at: new Date(expires_at_ms).toISOString(), issuer: "kingpin" };
   }
 
-  hasValidLease(request) {
-    return this.#store.transaction(tx => this._hasValidLease(tx, request));
+  // v0.4 detailed internal validation; public v1 decision projections stay unchanged.
+  validateLease(request) {
+    return this.#store.transaction(tx => this._validateLease(tx, request));
   }
 
-  _hasValidLease(tx, request) {
+  hasValidLease(request) {
+    return this.validateLease(request).valid;
+  }
+
+  _validateLease(tx, request) {
     const { key, state } = this._lookup(tx, request);
     const lease = tx.leases.get(request.lease_token);
-    return Boolean(state && lease && !lease.revoked && lease.expires_at_ms > this.clock()
-      && lease.key === key && lease.tool === request.tool && lease.args === canonical(request.args ?? {})
-      && this._tools(state).includes(request.tool));
+    const result = reason => ({ valid: reason === "ok", reason });
+    if (!lease) return result("missing");
+    if (!state || lease.key !== key || lease.tool !== request.tool || lease.args !== canonical(request.args ?? {})) return result("out_of_scope");
+    if (!(lease.expires_at_ms > this.clock())) return result("expired");
+    if (lease.issuance_epoch !== tx.leaseEpoch.current()) return result("epoch_revoked");
+    if (tx.nonceRevocations.has(lease.nonce)) return result("nonce_revoked");
+    if (lease.revoked) return result({ EXPLICIT_REVOCATION: "explicit_revoked",
+      CAPABILITY_REVOKED: "capability_revoked", ENVELOPE_CONTRACTED: "envelope_contracted" }[lease.revoked]);
+    if (!this._tools(state).includes(request.tool)) return result("outside_capability_envelope");
+    return result("ok");
+  }
+
+  // Trusted control-plane APIs only: no new gateway routes or request-selected epochs.
+  revokeLeaseNonce(nonce) {
+    return this.#store.transaction(tx => {
+      if (!text(nonce) || !tx.leases.getByNonce(nonce)) throw new Error("Unknown lease nonce");
+      tx.nonceRevocations.add(nonce);
+      return { revoked: true, lease_nonce: nonce };
+    });
+  }
+
+  revokeAllLeases() {
+    return this.#store.transaction(tx => ({ revoked: true, lease_epoch: tx.leaseEpoch.advance() }));
   }
 
   revoke(request) {

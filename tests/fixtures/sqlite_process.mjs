@@ -2,7 +2,7 @@ import { KingpinAuthority } from '../../kingpin/index.js';
 import { SQLiteStateStore } from '../../kingpin/state/sqlite.js';
 import { request, signal } from './authority_cases.mjs';
 
-function execute({ filename, action, token }) {
+function execute({ filename, action, token, nonce }) {
   const store = new SQLiteStateStore({ filename, create: action === 'initialize' });
   try {
     const a = new KingpinAuthority({ store, clock: () => 1700000000000 });
@@ -21,6 +21,9 @@ function execute({ filename, action, token }) {
       const denied = a.decide(signal(0), { ...request, tool: 'fs.write' }, 'revoked-write');
       return { duplicate, validLease, next, denied };
     }
+    if (action === 'validate') return a.validateLease({ ...request, lease_token: token });
+    if (action === 'revoke-nonce') return a.revokeLeaseNonce(nonce);
+    if (action === 'revoke-all') return a.revokeAllLeases();
     if (action === 'consume') return a.decide(signal(0), request, 'racing-id');
     throw new Error('Unknown test action');
   } finally { store.close(); }

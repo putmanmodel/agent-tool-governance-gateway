@@ -20,7 +20,9 @@ injected in the constructor for deterministic expiry tests.
 
 Existing control-plane operations remain `issue(request)`, `revoke(request)`
 and `hasValidLease(request)`. Lease issuance returns the existing opaque handle;
-no signing changes, nonce revocation or global revocation are added.
+v0.4 adds `revokeLeaseNonce`, `revokeAllLeases` and detailed `validateLease`
+results. These new persistent semantics are documented in the
+[lease revocation guide](LEASE_REVOCATION.md); no signing changes are included.
 Calls are synchronous; the gateway still serializes CDE evaluation through
 enforcement, together with issuance and revocation, to preserve ordering.
 

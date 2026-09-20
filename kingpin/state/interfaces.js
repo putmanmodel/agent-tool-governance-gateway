@@ -9,9 +9,12 @@
  * contexts.create(key, state); contexts.save(key, state)
  * evaluations.consume(key, evaluationId) -> boolean (atomic insert-if-absent)
  * revocations.list(key) -> Set<tool>; revocations.add(key, tool)
- * leases.get(token) -> {key, tool, args, expires_at_ms, revoked} | undefined
+ * leases.get(token) / getByNonce(nonce) -> {key, tool, args, expires_at_ms, revoked, nonce, issuance_epoch} | undefined
  * leases.insert(token, lease); leases.revoke(token, reason)
  * leases.revokeContext(key, reason, optionalTool)
+ * leaseEpoch.current() -> nonnegative safe integer; leaseEpoch.advance() -> next epoch
+ * nonceRevocations.has(nonce) -> boolean; nonceRevocations.add(nonce) (idempotent)
+ * v0.4 nonce/epoch state is independent of legacy context/capability revocation.
  *
  * Repositories persist supplied facts; only Kingpin selects transitions and reasons.
  * Callbacks must be synchronous and repositories cannot escape their transaction.
@@ -35,7 +38,14 @@ export function validContext(key, state) {
     && [0, 1].includes(state.clean) && (state.level !== 0 || state.clean === 0)
     && Number.isSafeInteger(state.revision) && state.revision >= 0, 'invalid envelope/recovery record');
 }
-export function validLease(lease) {
+export function validEpoch(epoch) {
+  check(Number.isSafeInteger(epoch) && epoch >= 0, 'invalid lease epoch');
+}
+export function validLease(lease, { legacy = false } = {}) {
+  if (!legacy) {
+    check(typeof lease.nonce === 'string' && /^[a-f0-9]{64}$/.test(lease.nonce), 'invalid lease nonce');
+    validEpoch(lease.issuance_epoch);
+  }
   check(typeof lease.tool === 'string' && lease.tool.trim()
     && typeof lease.args === 'string' && lease.args.startsWith('{') && lease.args.endsWith('}')
     && Number.isFinite(lease.expires_at_ms)

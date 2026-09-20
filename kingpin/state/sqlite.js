@@ -1,12 +1,18 @@
+import crypto from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
 import { readFileSync, openSync, closeSync } from 'node:fs';
-import { check, validContext, validLease } from './interfaces.js';
+import { check, validContext, validLease, validEpoch } from './interfaces.js';
 
 const schema = readFileSync(new URL('./schema.sql', import.meta.url), 'utf8');
+const migration = readFileSync(new URL('./migrations/002_lease_revocation.sql', import.meta.url), 'utf8');
+const nonceForToken = token => crypto.createHash('sha256').update(token).digest('hex');
 const schemaQuery = "SELECT type, name, tbl_name, sql FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%' ORDER BY name";
 const reference = new DatabaseSync(':memory:');
 reference.exec(schema);
-const expectedSchema = JSON.stringify(reference.prepare(schemaQuery).all());
+const expectedSchemas = { 1: JSON.stringify(reference.prepare(schemaQuery).all()) };
+reference.function('kingpin_lease_nonce', nonceForToken);
+reference.exec(migration);
+expectedSchemas[2] = JSON.stringify(reference.prepare(schemaQuery).all());
 reference.close();
 
 export class SQLiteStateStore {
@@ -30,27 +36,38 @@ export class SQLiteStateStore {
       this.#db.exec('BEGIN IMMEDIATE');
       try {
         if (create) this.#db.exec(schema);
+        const version = this.#db.prepare('PRAGMA user_version').get().user_version;
+        if (version === 1) {
+          this.#verify(1);
+          this.#db.function('kingpin_lease_nonce', nonceForToken);
+          this.#db.exec(migration);
+        }
         this.#verify();
         this.#db.exec('COMMIT');
       } catch (error) { this.#db.exec('ROLLBACK'); throw error; }
     } catch (error) { this.#db?.close(); this.#db = undefined; throw error; }
   }
 
-  #verify() {
-    check(this.#db.prepare('PRAGMA user_version').get().user_version === 1, 'unsupported SQLite schema version');
-    check(JSON.stringify(this.#db.prepare(schemaQuery).all()) === expectedSchema, 'incompatible SQLite schema');
+  #verify(version = 2) {
+    check(this.#db.prepare('PRAGMA user_version').get().user_version === version, 'unsupported SQLite schema version');
+    check(JSON.stringify(this.#db.prepare(schemaQuery).all()) === expectedSchemas[version], 'incompatible SQLite schema');
     check(this.#db.prepare('PRAGMA quick_check').all().every(row => row.quick_check === 'ok'), 'SQLite integrity check failed');
     check(this.#db.prepare('PRAGMA foreign_key_check').all().length === 0, 'orphaned governance records');
     const metadata = this.#db.prepare('SELECT * FROM store_metadata').all();
     check(metadata.length === 1 && metadata[0].singleton === 1, 'missing store metadata');
     const fingerprint = metadata[0].policy_fingerprint;
+    if (version === 2) validEpoch(metadata[0].lease_epoch);
     check(fingerprint === null || /^[a-f0-9]{64}$/.test(fingerprint), 'invalid policy fingerprint');
     if (this.#fingerprint !== undefined) check(fingerprint === this.#fingerprint, 'policy mismatch');
     const rows = this.#db.prepare('SELECT * FROM contexts').all();
     check(fingerprint !== null || rows.length === 0, 'unbound persisted contexts');
     for (const row of rows) validContext(row.context_key, row);
     for (const row of this.#db.prepare('SELECT * FROM leases').all()) {
-      validLease(row);
+      validLease(row, { legacy: version === 1 });
+      if (version === 2) {
+        check(row.nonce === nonceForToken(row.token), 'lease nonce identity mismatch');
+        check(row.issuance_epoch <= metadata[0].lease_epoch, 'future issuance epoch');
+      }
       if (this.#toolIds) check(this.#toolIds.has(row.tool), "unknown leased capability");
       check(/^[a-f0-9-]{36}$/.test(row.token), 'invalid lease token');
     }
@@ -116,12 +133,29 @@ export class SQLiteStateStore {
           list: guard(key => new Set(this.#db.prepare('SELECT tool FROM capability_revocations WHERE context_key = ? ORDER BY tool').all(key).map(row => row.tool))),
           add: guard((key, tool) => run('INSERT INTO capability_revocations VALUES (?, ?) ON CONFLICT DO NOTHING', key, tool)),
         },
+        leaseEpoch: {
+          current: guard(() => this.#db.prepare('SELECT lease_epoch FROM store_metadata WHERE singleton = 1').get().lease_epoch),
+          advance: guard(() => {
+            const current = this.#db.prepare('SELECT lease_epoch FROM store_metadata WHERE singleton = 1').get().lease_epoch;
+            validEpoch(current + 1);
+            check(run('UPDATE store_metadata SET lease_epoch = lease_epoch + 1 WHERE singleton = 1').changes === 1, 'missing lease epoch');
+            return current + 1;
+          }),
+        },
+        nonceRevocations: {
+          has: guard(nonce => Boolean(this.#db.prepare('SELECT nonce FROM lease_nonce_revocations WHERE nonce = ?').get(nonce))),
+          add: guard(nonce => run('INSERT INTO lease_nonce_revocations VALUES (?) ON CONFLICT(nonce) DO NOTHING', nonce)),
+        },
         leases: {
+          getByNonce: guard(nonce => typeof nonce === 'string' ? this.#db.prepare(
+            'SELECT context_key AS key, tool, args, expires_at_ms, revoked, nonce, issuance_epoch FROM leases WHERE nonce = ?').get(nonce) : undefined),
           get: guard(token => typeof token === 'string' ? this.#db.prepare(
-            'SELECT context_key AS key, tool, args, expires_at_ms, revoked FROM leases WHERE token = ?').get(token) : undefined),
+            'SELECT context_key AS key, tool, args, expires_at_ms, revoked, nonce, issuance_epoch FROM leases WHERE token = ?').get(token) : undefined),
           insert: guard((token, lease) => {
             validLease(lease);
-            run('INSERT INTO leases VALUES (?, ?, ?, ?, ?, ?)', token, lease.key, lease.tool, lease.args, lease.expires_at_ms, lease.revoked);
+            check(lease.nonce === nonceForToken(token), 'lease nonce identity mismatch');
+            check(lease.issuance_epoch === tx.leaseEpoch.current(), 'issuance epoch mismatch');
+            run('INSERT INTO leases VALUES (?, ?, ?, ?, ?, ?, ?, ?)', token, lease.key, lease.tool, lease.args, lease.expires_at_ms, lease.revoked, lease.nonce, lease.issuance_epoch);
           }),
           revoke: guard((token, reason) => check(run('UPDATE leases SET revoked = ? WHERE token = ?', reason, token).changes === 1, 'missing lease')),
           revokeContext: guard((key, reason, tool) => tool

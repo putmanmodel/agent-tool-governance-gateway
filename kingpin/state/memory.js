@@ -1,10 +1,12 @@
-import { check, validContext, validLease } from './interfaces.js';
+import { check, validContext, validLease, validEpoch } from './interfaces.js';
 
 export class MemoryStateStore {
   #contexts = new Map();
   #evaluations = new Map();
   #revocations = new Map();
   #leases = new Map();
+  #leaseEpoch = 0;
+  #nonceRevocations = new Set();
   #policy;
   #closed = false;
   #active = false;
@@ -18,6 +20,8 @@ export class MemoryStateStore {
     check(!this.#closed && !this.#active && this.#policy !== undefined, 'store unavailable or unbound');
     const contexts = structuredClone(this.#contexts), evaluations = structuredClone(this.#evaluations);
     const revocations = structuredClone(this.#revocations), leases = structuredClone(this.#leases);
+    let leaseEpoch = this.#leaseEpoch;
+    const nonceRevocations = new Set(this.#nonceRevocations);
     this.#active = true;
     let open = true;
     const guard = fn => (...args) => { check(open, 'transaction ended'); return fn(...args); };
@@ -44,10 +48,24 @@ export class MemoryStateStore {
         list: guard(key => { exists(key); return new Set(revocations.get(key)); }),
         add: guard((key, tool) => { exists(key); revocations.get(key).add(tool); }),
       },
+      leaseEpoch: {
+        current: guard(() => leaseEpoch),
+        advance: guard(() => { validEpoch(leaseEpoch + 1); return ++leaseEpoch; }),
+      },
+      nonceRevocations: {
+        has: guard(nonce => nonceRevocations.has(nonce)),
+        add: guard(nonce => {
+          check([...leases.values()].some(lease => lease.nonce === nonce), 'missing lease nonce');
+          nonceRevocations.add(nonce);
+        }),
+      },
       leases: {
+        getByNonce: guard(nonce => structuredClone([...leases.values()].find(lease => lease.nonce === nonce))),
         get: guard(token => structuredClone(leases.get(token))),
         insert: guard((token, lease) => {
           exists(lease.key); validLease(lease); check(!leases.has(token), 'duplicate lease');
+          check(lease.issuance_epoch === leaseEpoch, 'issuance epoch mismatch');
+          check(![...leases.values()].some(existing => existing.nonce === lease.nonce), 'duplicate lease nonce');
           leases.set(token, structuredClone(lease));
         }),
         revoke: guard((token, reason) => {
@@ -65,6 +83,7 @@ export class MemoryStateStore {
       check(!result || typeof result.then !== 'function', 'async transaction not supported');
       this.#contexts = contexts; this.#evaluations = evaluations;
       this.#revocations = revocations; this.#leases = leases;
+      this.#leaseEpoch = leaseEpoch; this.#nonceRevocations = nonceRevocations;
       return result;
     } finally { open = false; this.#active = false; }
   }
