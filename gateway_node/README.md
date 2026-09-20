@@ -26,7 +26,7 @@ the outcomes, prints a transcript, then stops both. All tool actions are simulat
 ## Authority boundary
 
 - CDE: Gate 0 PASS, Gate 1 EVIDENCE REQUIRED, Gate 2 LEASE REQUIRED.
-- `kingpin/authority.js`: full → non-destructive → read-only → quarantined envelope;
+- `../kingpin/authority.js`: full → non-destructive → read-only → quarantined envelope;
   evidence policy; context/operation-bound leases; revocation; staged recovery.
 - `enforcement.js`: mechanically maps Kingpin's five outcomes to HTTP statuses.
 - `/lease` and `/revoke`: local demo control-plane routes delegated to Kingpin.

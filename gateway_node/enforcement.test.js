@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { enforceAuthorityDecision } from "./enforcement.js";
-import { KingpinAuthority } from "./kingpin/authority.js";
+import { KingpinAuthority } from "../kingpin/index.js";
 
 const request = { tool: "fs.list", args: { path: "/project" }, session_id: "s", speaker_id: "actor",
   channel_id: "channel", task_id: "task", scene_id: "scene" };

@@ -68,7 +68,7 @@ The standalone engine remains runnable with `python run_demo.py`, producing
 
 - `src/engine.py` and `manifests/` — CDE evaluation and baseline configuration
 - `cde_service.py` — warm, session-aware CDE service
-- `gateway_node/kingpin/authority.js` — authority policy and state
+- `kingpin/authority.js` — authority policy and state
 - `gateway_node/enforcement.js` — mechanical enforcement
 - `gateway_node/server.js` and `gateway_node/demo.js` — HTTP flow and asserted demo
 

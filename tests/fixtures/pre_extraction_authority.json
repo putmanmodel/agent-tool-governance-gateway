@@ -1,0 +1,1561 @@
+{
+  "gate-0-fs.list-evidence-false": {
+    "schema_version": "1.0",
+    "issuer": "kingpin",
+    "policy_version": "demo_v1",
+    "evaluation_id": "evaluation-1",
+    "context": {
+      "session_id": "s",
+      "speaker_id": "actor",
+      "channel_id": "channel",
+      "scope_key": "scene:scene"
+    },
+    "outcome": "allow",
+    "reason": "allowed",
+    "reason_codes": [
+      "ALLOWED"
+    ],
+    "capability_envelope": {
+      "level": "full",
+      "tools": [
+        "fs.list",
+        "fs.read",
+        "fs.write",
+        "git.commit",
+        "fs.delete",
+        "shell.rm",
+        "git.reset_hard"
+      ],
+      "revision": 0,
+      "clean_evaluations": 0,
+      "restoration_step_after": 2,
+      "revoked_tools": []
+    },
+    "cde_gate": 0,
+    "tool_floor_gate": 0,
+    "effective_gate": 0,
+    "effective_gate_label": "PASS",
+    "evidence_requirements": [],
+    "missing_evidence": [],
+    "authority_requirement": "none"
+  },
+  "gate-0-fs.list-evidence-true": {
+    "schema_version": "1.0",
+    "issuer": "kingpin",
+    "policy_version": "demo_v1",
+    "evaluation_id": "evaluation-2",
+    "context": {
+      "session_id": "s",
+      "speaker_id": "actor",
+      "channel_id": "channel",
+      "scope_key": "scene:scene"
+    },
+    "outcome": "allow",
+    "reason": "allowed",
+    "reason_codes": [
+      "ALLOWED"
+    ],
+    "capability_envelope": {
+      "level": "full",
+      "tools": [
+        "fs.list",
+        "fs.read",
+        "fs.write",
+        "git.commit",
+        "fs.delete",
+        "shell.rm",
+        "git.reset_hard"
+      ],
+      "revision": 0,
+      "clean_evaluations": 0,
+      "restoration_step_after": 2,
+      "revoked_tools": []
+    },
+    "cde_gate": 0,
+    "tool_floor_gate": 0,
+    "effective_gate": 0,
+    "effective_gate_label": "PASS",
+    "evidence_requirements": [],
+    "missing_evidence": [],
+    "authority_requirement": "none"
+  },
+  "gate-0-fs.write-evidence-false": {
+    "schema_version": "1.0",
+    "issuer": "kingpin",
+    "policy_version": "demo_v1",
+    "evaluation_id": "evaluation-3",
+    "context": {
+      "session_id": "s",
+      "speaker_id": "actor",
+      "channel_id": "channel",
+      "scope_key": "scene:scene"
+    },
+    "outcome": "constrain",
+    "reason": "gate_1_requires_dry_run_and_diff",
+    "reason_codes": [
+      "GATE_1_REQUIRES_DRY_RUN_AND_DIFF"
+    ],
+    "capability_envelope": {
+      "level": "full",
+      "tools": [
+        "fs.list",
+        "fs.read",
+        "fs.write",
+        "git.commit",
+        "fs.delete",
+        "shell.rm",
+        "git.reset_hard"
+      ],
+      "revision": 0,
+      "clean_evaluations": 0,
+      "restoration_step_after": 2,
+      "revoked_tools": []
+    },
+    "cde_gate": 0,
+    "tool_floor_gate": 1,
+    "effective_gate": 1,
+    "effective_gate_label": "EVIDENCE REQUIRED",
+    "evidence_requirements": [
+      "dry_run",
+      "diff"
+    ],
+    "missing_evidence": [
+      "dry_run",
+      "diff"
+    ],
+    "authority_requirement": "none"
+  },
+  "gate-0-fs.write-evidence-true": {
+    "schema_version": "1.0",
+    "issuer": "kingpin",
+    "policy_version": "demo_v1",
+    "evaluation_id": "evaluation-4",
+    "context": {
+      "session_id": "s",
+      "speaker_id": "actor",
+      "channel_id": "channel",
+      "scope_key": "scene:scene"
+    },
+    "outcome": "allow",
+    "reason": "allowed",
+    "reason_codes": [
+      "ALLOWED"
+    ],
+    "capability_envelope": {
+      "level": "full",
+      "tools": [
+        "fs.list",
+        "fs.read",
+        "fs.write",
+        "git.commit",
+        "fs.delete",
+        "shell.rm",
+        "git.reset_hard"
+      ],
+      "revision": 0,
+      "clean_evaluations": 0,
+      "restoration_step_after": 2,
+      "revoked_tools": []
+    },
+    "cde_gate": 0,
+    "tool_floor_gate": 1,
+    "effective_gate": 1,
+    "effective_gate_label": "EVIDENCE REQUIRED",
+    "evidence_requirements": [
+      "dry_run",
+      "diff"
+    ],
+    "missing_evidence": [],
+    "authority_requirement": "none"
+  },
+  "gate-0-fs.delete-evidence-false": {
+    "schema_version": "1.0",
+    "issuer": "kingpin",
+    "policy_version": "demo_v1",
+    "evaluation_id": "evaluation-5",
+    "context": {
+      "session_id": "s",
+      "speaker_id": "actor",
+      "channel_id": "channel",
+      "scope_key": "scene:scene"
+    },
+    "outcome": "deny",
+    "reason": "gate_2_requires_valid_lease",
+    "reason_codes": [
+      "GATE_2_REQUIRES_VALID_LEASE"
+    ],
+    "capability_envelope": {
+      "level": "full",
+      "tools": [
+        "fs.list",
+        "fs.read",
+        "fs.write",
+        "git.commit",
+        "fs.delete",
+        "shell.rm",
+        "git.reset_hard"
+      ],
+      "revision": 0,
+      "clean_evaluations": 0,
+      "restoration_step_after": 2,
+      "revoked_tools": []
+    },
+    "cde_gate": 0,
+    "tool_floor_gate": 2,
+    "effective_gate": 2,
+    "effective_gate_label": "LEASE REQUIRED",
+    "evidence_requirements": [],
+    "missing_evidence": [],
+    "authority_requirement": "lease"
+  },
+  "gate-0-fs.delete-evidence-true": {
+    "schema_version": "1.0",
+    "issuer": "kingpin",
+    "policy_version": "demo_v1",
+    "evaluation_id": "evaluation-6",
+    "context": {
+      "session_id": "s",
+      "speaker_id": "actor",
+      "channel_id": "channel",
+      "scope_key": "scene:scene"
+    },
+    "outcome": "deny",
+    "reason": "gate_2_requires_valid_lease",
+    "reason_codes": [
+      "GATE_2_REQUIRES_VALID_LEASE"
+    ],
+    "capability_envelope": {
+      "level": "full",
+      "tools": [
+        "fs.list",
+        "fs.read",
+        "fs.write",
+        "git.commit",
+        "fs.delete",
+        "shell.rm",
+        "git.reset_hard"
+      ],
+      "revision": 0,
+      "clean_evaluations": 0,
+      "restoration_step_after": 2,
+      "revoked_tools": []
+    },
+    "cde_gate": 0,
+    "tool_floor_gate": 2,
+    "effective_gate": 2,
+    "effective_gate_label": "LEASE REQUIRED",
+    "evidence_requirements": [],
+    "missing_evidence": [],
+    "authority_requirement": "lease"
+  },
+  "gate-1-fs.list-evidence-false": {
+    "schema_version": "1.0",
+    "issuer": "kingpin",
+    "policy_version": "demo_v1",
+    "evaluation_id": "evaluation-7",
+    "context": {
+      "session_id": "s",
+      "speaker_id": "actor",
+      "channel_id": "channel",
+      "scope_key": "scene:scene"
+    },
+    "outcome": "constrain",
+    "reason": "gate_1_requires_dry_run_and_diff",
+    "reason_codes": [
+      "ENVELOPE_CONTRACTED",
+      "GATE_1_REQUIRES_DRY_RUN_AND_DIFF"
+    ],
+    "capability_envelope": {
+      "level": "non_destructive",
+      "tools": [
+        "fs.list",
+        "fs.read",
+        "fs.write",
+        "git.commit"
+      ],
+      "revision": 1,
+      "clean_evaluations": 0,
+      "restoration_step_after": 2,
+      "revoked_tools": []
+    },
+    "cde_gate": 1,
+    "tool_floor_gate": 0,
+    "effective_gate": 1,
+    "effective_gate_label": "EVIDENCE REQUIRED",
+    "evidence_requirements": [
+      "dry_run",
+      "diff"
+    ],
+    "missing_evidence": [
+      "dry_run",
+      "diff"
+    ],
+    "authority_requirement": "none"
+  },
+  "gate-1-fs.list-evidence-true": {
+    "schema_version": "1.0",
+    "issuer": "kingpin",
+    "policy_version": "demo_v1",
+    "evaluation_id": "evaluation-8",
+    "context": {
+      "session_id": "s",
+      "speaker_id": "actor",
+      "channel_id": "channel",
+      "scope_key": "scene:scene"
+    },
+    "outcome": "allow",
+    "reason": "allowed",
+    "reason_codes": [
+      "ENVELOPE_CONTRACTED",
+      "ALLOWED"
+    ],
+    "capability_envelope": {
+      "level": "non_destructive",
+      "tools": [
+        "fs.list",
+        "fs.read",
+        "fs.write",
+        "git.commit"
+      ],
+      "revision": 1,
+      "clean_evaluations": 0,
+      "restoration_step_after": 2,
+      "revoked_tools": []
+    },
+    "cde_gate": 1,
+    "tool_floor_gate": 0,
+    "effective_gate": 1,
+    "effective_gate_label": "EVIDENCE REQUIRED",
+    "evidence_requirements": [
+      "dry_run",
+      "diff"
+    ],
+    "missing_evidence": [],
+    "authority_requirement": "none"
+  },
+  "gate-1-fs.write-evidence-false": {
+    "schema_version": "1.0",
+    "issuer": "kingpin",
+    "policy_version": "demo_v1",
+    "evaluation_id": "evaluation-9",
+    "context": {
+      "session_id": "s",
+      "speaker_id": "actor",
+      "channel_id": "channel",
+      "scope_key": "scene:scene"
+    },
+    "outcome": "constrain",
+    "reason": "gate_1_requires_dry_run_and_diff",
+    "reason_codes": [
+      "ENVELOPE_CONTRACTED",
+      "GATE_1_REQUIRES_DRY_RUN_AND_DIFF"
+    ],
+    "capability_envelope": {
+      "level": "non_destructive",
+      "tools": [
+        "fs.list",
+        "fs.read",
+        "fs.write",
+        "git.commit"
+      ],
+      "revision": 1,
+      "clean_evaluations": 0,
+      "restoration_step_after": 2,
+      "revoked_tools": []
+    },
+    "cde_gate": 1,
+    "tool_floor_gate": 1,
+    "effective_gate": 1,
+    "effective_gate_label": "EVIDENCE REQUIRED",
+    "evidence_requirements": [
+      "dry_run",
+      "diff"
+    ],
+    "missing_evidence": [
+      "dry_run",
+      "diff"
+    ],
+    "authority_requirement": "none"
+  },
+  "gate-1-fs.write-evidence-true": {
+    "schema_version": "1.0",
+    "issuer": "kingpin",
+    "policy_version": "demo_v1",
+    "evaluation_id": "evaluation-10",
+    "context": {
+      "session_id": "s",
+      "speaker_id": "actor",
+      "channel_id": "channel",
+      "scope_key": "scene:scene"
+    },
+    "outcome": "allow",
+    "reason": "allowed",
+    "reason_codes": [
+      "ENVELOPE_CONTRACTED",
+      "ALLOWED"
+    ],
+    "capability_envelope": {
+      "level": "non_destructive",
+      "tools": [
+        "fs.list",
+        "fs.read",
+        "fs.write",
+        "git.commit"
+      ],
+      "revision": 1,
+      "clean_evaluations": 0,
+      "restoration_step_after": 2,
+      "revoked_tools": []
+    },
+    "cde_gate": 1,
+    "tool_floor_gate": 1,
+    "effective_gate": 1,
+    "effective_gate_label": "EVIDENCE REQUIRED",
+    "evidence_requirements": [
+      "dry_run",
+      "diff"
+    ],
+    "missing_evidence": [],
+    "authority_requirement": "none"
+  },
+  "gate-1-fs.delete-evidence-false": {
+    "schema_version": "1.0",
+    "issuer": "kingpin",
+    "policy_version": "demo_v1",
+    "evaluation_id": "evaluation-11",
+    "context": {
+      "session_id": "s",
+      "speaker_id": "actor",
+      "channel_id": "channel",
+      "scope_key": "scene:scene"
+    },
+    "outcome": "deny",
+    "reason": "outside_capability_envelope",
+    "reason_codes": [
+      "ENVELOPE_CONTRACTED",
+      "OUTSIDE_CAPABILITY_ENVELOPE"
+    ],
+    "capability_envelope": {
+      "level": "non_destructive",
+      "tools": [
+        "fs.list",
+        "fs.read",
+        "fs.write",
+        "git.commit"
+      ],
+      "revision": 1,
+      "clean_evaluations": 0,
+      "restoration_step_after": 2,
+      "revoked_tools": []
+    },
+    "cde_gate": 1,
+    "tool_floor_gate": 2,
+    "effective_gate": 2,
+    "effective_gate_label": "LEASE REQUIRED",
+    "evidence_requirements": [],
+    "missing_evidence": [],
+    "authority_requirement": "lease"
+  },
+  "gate-1-fs.delete-evidence-true": {
+    "schema_version": "1.0",
+    "issuer": "kingpin",
+    "policy_version": "demo_v1",
+    "evaluation_id": "evaluation-12",
+    "context": {
+      "session_id": "s",
+      "speaker_id": "actor",
+      "channel_id": "channel",
+      "scope_key": "scene:scene"
+    },
+    "outcome": "deny",
+    "reason": "outside_capability_envelope",
+    "reason_codes": [
+      "ENVELOPE_CONTRACTED",
+      "OUTSIDE_CAPABILITY_ENVELOPE"
+    ],
+    "capability_envelope": {
+      "level": "non_destructive",
+      "tools": [
+        "fs.list",
+        "fs.read",
+        "fs.write",
+        "git.commit"
+      ],
+      "revision": 1,
+      "clean_evaluations": 0,
+      "restoration_step_after": 2,
+      "revoked_tools": []
+    },
+    "cde_gate": 1,
+    "tool_floor_gate": 2,
+    "effective_gate": 2,
+    "effective_gate_label": "LEASE REQUIRED",
+    "evidence_requirements": [],
+    "missing_evidence": [],
+    "authority_requirement": "lease"
+  },
+  "gate-2-fs.list-evidence-false": {
+    "schema_version": "1.0",
+    "issuer": "kingpin",
+    "policy_version": "demo_v1",
+    "evaluation_id": "evaluation-13",
+    "context": {
+      "session_id": "s",
+      "speaker_id": "actor",
+      "channel_id": "channel",
+      "scope_key": "scene:scene"
+    },
+    "outcome": "deny",
+    "reason": "gate_2_requires_valid_lease",
+    "reason_codes": [
+      "ENVELOPE_CONTRACTED",
+      "GATE_2_REQUIRES_VALID_LEASE"
+    ],
+    "capability_envelope": {
+      "level": "read_only",
+      "tools": [
+        "fs.list",
+        "fs.read"
+      ],
+      "revision": 1,
+      "clean_evaluations": 0,
+      "restoration_step_after": 2,
+      "revoked_tools": []
+    },
+    "cde_gate": 2,
+    "tool_floor_gate": 0,
+    "effective_gate": 2,
+    "effective_gate_label": "LEASE REQUIRED",
+    "evidence_requirements": [],
+    "missing_evidence": [],
+    "authority_requirement": "lease"
+  },
+  "gate-2-fs.list-evidence-true": {
+    "schema_version": "1.0",
+    "issuer": "kingpin",
+    "policy_version": "demo_v1",
+    "evaluation_id": "evaluation-14",
+    "context": {
+      "session_id": "s",
+      "speaker_id": "actor",
+      "channel_id": "channel",
+      "scope_key": "scene:scene"
+    },
+    "outcome": "deny",
+    "reason": "gate_2_requires_valid_lease",
+    "reason_codes": [
+      "ENVELOPE_CONTRACTED",
+      "GATE_2_REQUIRES_VALID_LEASE"
+    ],
+    "capability_envelope": {
+      "level": "read_only",
+      "tools": [
+        "fs.list",
+        "fs.read"
+      ],
+      "revision": 1,
+      "clean_evaluations": 0,
+      "restoration_step_after": 2,
+      "revoked_tools": []
+    },
+    "cde_gate": 2,
+    "tool_floor_gate": 0,
+    "effective_gate": 2,
+    "effective_gate_label": "LEASE REQUIRED",
+    "evidence_requirements": [],
+    "missing_evidence": [],
+    "authority_requirement": "lease"
+  },
+  "gate-2-fs.write-evidence-false": {
+    "schema_version": "1.0",
+    "issuer": "kingpin",
+    "policy_version": "demo_v1",
+    "evaluation_id": "evaluation-15",
+    "context": {
+      "session_id": "s",
+      "speaker_id": "actor",
+      "channel_id": "channel",
+      "scope_key": "scene:scene"
+    },
+    "outcome": "deny",
+    "reason": "outside_capability_envelope",
+    "reason_codes": [
+      "ENVELOPE_CONTRACTED",
+      "OUTSIDE_CAPABILITY_ENVELOPE"
+    ],
+    "capability_envelope": {
+      "level": "read_only",
+      "tools": [
+        "fs.list",
+        "fs.read"
+      ],
+      "revision": 1,
+      "clean_evaluations": 0,
+      "restoration_step_after": 2,
+      "revoked_tools": []
+    },
+    "cde_gate": 2,
+    "tool_floor_gate": 1,
+    "effective_gate": 2,
+    "effective_gate_label": "LEASE REQUIRED",
+    "evidence_requirements": [],
+    "missing_evidence": [],
+    "authority_requirement": "lease"
+  },
+  "gate-2-fs.write-evidence-true": {
+    "schema_version": "1.0",
+    "issuer": "kingpin",
+    "policy_version": "demo_v1",
+    "evaluation_id": "evaluation-16",
+    "context": {
+      "session_id": "s",
+      "speaker_id": "actor",
+      "channel_id": "channel",
+      "scope_key": "scene:scene"
+    },
+    "outcome": "deny",
+    "reason": "outside_capability_envelope",
+    "reason_codes": [
+      "ENVELOPE_CONTRACTED",
+      "OUTSIDE_CAPABILITY_ENVELOPE"
+    ],
+    "capability_envelope": {
+      "level": "read_only",
+      "tools": [
+        "fs.list",
+        "fs.read"
+      ],
+      "revision": 1,
+      "clean_evaluations": 0,
+      "restoration_step_after": 2,
+      "revoked_tools": []
+    },
+    "cde_gate": 2,
+    "tool_floor_gate": 1,
+    "effective_gate": 2,
+    "effective_gate_label": "LEASE REQUIRED",
+    "evidence_requirements": [],
+    "missing_evidence": [],
+    "authority_requirement": "lease"
+  },
+  "gate-2-fs.delete-evidence-false": {
+    "schema_version": "1.0",
+    "issuer": "kingpin",
+    "policy_version": "demo_v1",
+    "evaluation_id": "evaluation-17",
+    "context": {
+      "session_id": "s",
+      "speaker_id": "actor",
+      "channel_id": "channel",
+      "scope_key": "scene:scene"
+    },
+    "outcome": "deny",
+    "reason": "outside_capability_envelope",
+    "reason_codes": [
+      "ENVELOPE_CONTRACTED",
+      "OUTSIDE_CAPABILITY_ENVELOPE"
+    ],
+    "capability_envelope": {
+      "level": "read_only",
+      "tools": [
+        "fs.list",
+        "fs.read"
+      ],
+      "revision": 1,
+      "clean_evaluations": 0,
+      "restoration_step_after": 2,
+      "revoked_tools": []
+    },
+    "cde_gate": 2,
+    "tool_floor_gate": 2,
+    "effective_gate": 2,
+    "effective_gate_label": "LEASE REQUIRED",
+    "evidence_requirements": [],
+    "missing_evidence": [],
+    "authority_requirement": "lease"
+  },
+  "gate-2-fs.delete-evidence-true": {
+    "schema_version": "1.0",
+    "issuer": "kingpin",
+    "policy_version": "demo_v1",
+    "evaluation_id": "evaluation-18",
+    "context": {
+      "session_id": "s",
+      "speaker_id": "actor",
+      "channel_id": "channel",
+      "scope_key": "scene:scene"
+    },
+    "outcome": "deny",
+    "reason": "outside_capability_envelope",
+    "reason_codes": [
+      "ENVELOPE_CONTRACTED",
+      "OUTSIDE_CAPABILITY_ENVELOPE"
+    ],
+    "capability_envelope": {
+      "level": "read_only",
+      "tools": [
+        "fs.list",
+        "fs.read"
+      ],
+      "revision": 1,
+      "clean_evaluations": 0,
+      "restoration_step_after": 2,
+      "revoked_tools": []
+    },
+    "cde_gate": 2,
+    "tool_floor_gate": 2,
+    "effective_gate": 2,
+    "effective_gate_label": "LEASE REQUIRED",
+    "evidence_requirements": [],
+    "missing_evidence": [],
+    "authority_requirement": "lease"
+  },
+  "review-fs.list": {
+    "schema_version": "1.0",
+    "issuer": "kingpin",
+    "policy_version": "demo_v1",
+    "evaluation_id": "evaluation-19",
+    "context": {
+      "session_id": "s",
+      "speaker_id": "actor",
+      "channel_id": "channel",
+      "scope_key": "scene:scene"
+    },
+    "outcome": "human_review",
+    "reason": "low_confidence_requires_human_review",
+    "reason_codes": [
+      "ENVELOPE_CONTRACTED",
+      "LOW_CONFIDENCE_REQUIRES_HUMAN_REVIEW"
+    ],
+    "capability_envelope": {
+      "level": "non_destructive",
+      "tools": [
+        "fs.list",
+        "fs.read",
+        "fs.write",
+        "git.commit"
+      ],
+      "revision": 1,
+      "clean_evaluations": 0,
+      "restoration_step_after": 2,
+      "revoked_tools": []
+    },
+    "cde_gate": 1,
+    "tool_floor_gate": 0,
+    "effective_gate": 1,
+    "effective_gate_label": "EVIDENCE REQUIRED",
+    "evidence_requirements": [
+      "dry_run",
+      "diff"
+    ],
+    "missing_evidence": [],
+    "authority_requirement": "none"
+  },
+  "review-fs.delete": {
+    "schema_version": "1.0",
+    "issuer": "kingpin",
+    "policy_version": "demo_v1",
+    "evaluation_id": "evaluation-20",
+    "context": {
+      "session_id": "s",
+      "speaker_id": "actor",
+      "channel_id": "channel",
+      "scope_key": "scene:scene"
+    },
+    "outcome": "deny",
+    "reason": "outside_capability_envelope",
+    "reason_codes": [
+      "ENVELOPE_CONTRACTED",
+      "OUTSIDE_CAPABILITY_ENVELOPE"
+    ],
+    "capability_envelope": {
+      "level": "non_destructive",
+      "tools": [
+        "fs.list",
+        "fs.read",
+        "fs.write",
+        "git.commit"
+      ],
+      "revision": 1,
+      "clean_evaluations": 0,
+      "restoration_step_after": 2,
+      "revoked_tools": []
+    },
+    "cde_gate": 1,
+    "tool_floor_gate": 2,
+    "effective_gate": 2,
+    "effective_gate_label": "LEASE REQUIRED",
+    "evidence_requirements": [],
+    "missing_evidence": [],
+    "authority_requirement": "lease"
+  },
+  "progression": [
+    {
+      "schema_version": "1.0",
+      "issuer": "kingpin",
+      "policy_version": "demo_v1",
+      "evaluation_id": "evaluation-21",
+      "context": {
+        "session_id": "s",
+        "speaker_id": "actor",
+        "channel_id": "channel",
+        "scope_key": "scene:scene"
+      },
+      "outcome": "allow",
+      "reason": "allowed",
+      "reason_codes": [
+        "ALLOWED"
+      ],
+      "capability_envelope": {
+        "level": "full",
+        "tools": [
+          "fs.list",
+          "fs.read",
+          "fs.write",
+          "git.commit",
+          "fs.delete",
+          "shell.rm",
+          "git.reset_hard"
+        ],
+        "revision": 0,
+        "clean_evaluations": 0,
+        "restoration_step_after": 2,
+        "revoked_tools": []
+      },
+      "cde_gate": 0,
+      "tool_floor_gate": 0,
+      "effective_gate": 0,
+      "effective_gate_label": "PASS",
+      "evidence_requirements": [],
+      "missing_evidence": [],
+      "authority_requirement": "none"
+    },
+    {
+      "schema_version": "1.0",
+      "issuer": "kingpin",
+      "policy_version": "demo_v1",
+      "evaluation_id": "evaluation-22",
+      "context": {
+        "session_id": "s",
+        "speaker_id": "actor",
+        "channel_id": "channel",
+        "scope_key": "scene:scene"
+      },
+      "outcome": "constrain",
+      "reason": "gate_1_requires_dry_run_and_diff",
+      "reason_codes": [
+        "ENVELOPE_CONTRACTED",
+        "GATE_1_REQUIRES_DRY_RUN_AND_DIFF"
+      ],
+      "capability_envelope": {
+        "level": "non_destructive",
+        "tools": [
+          "fs.list",
+          "fs.read",
+          "fs.write",
+          "git.commit"
+        ],
+        "revision": 1,
+        "clean_evaluations": 0,
+        "restoration_step_after": 2,
+        "revoked_tools": []
+      },
+      "cde_gate": 1,
+      "tool_floor_gate": 0,
+      "effective_gate": 1,
+      "effective_gate_label": "EVIDENCE REQUIRED",
+      "evidence_requirements": [
+        "dry_run",
+        "diff"
+      ],
+      "missing_evidence": [
+        "dry_run",
+        "diff"
+      ],
+      "authority_requirement": "none"
+    },
+    {
+      "schema_version": "1.0",
+      "issuer": "kingpin",
+      "policy_version": "demo_v1",
+      "evaluation_id": "evaluation-23",
+      "context": {
+        "session_id": "s",
+        "speaker_id": "actor",
+        "channel_id": "channel",
+        "scope_key": "scene:scene"
+      },
+      "outcome": "deny",
+      "reason": "gate_2_requires_valid_lease",
+      "reason_codes": [
+        "ENVELOPE_CONTRACTED",
+        "GATE_2_REQUIRES_VALID_LEASE"
+      ],
+      "capability_envelope": {
+        "level": "read_only",
+        "tools": [
+          "fs.list",
+          "fs.read"
+        ],
+        "revision": 2,
+        "clean_evaluations": 0,
+        "restoration_step_after": 2,
+        "revoked_tools": []
+      },
+      "cde_gate": 2,
+      "tool_floor_gate": 0,
+      "effective_gate": 2,
+      "effective_gate_label": "LEASE REQUIRED",
+      "evidence_requirements": [],
+      "missing_evidence": [],
+      "authority_requirement": "lease"
+    },
+    {
+      "schema_version": "1.0",
+      "issuer": "kingpin",
+      "policy_version": "demo_v1",
+      "evaluation_id": "evaluation-24",
+      "context": {
+        "session_id": "s",
+        "speaker_id": "actor",
+        "channel_id": "channel",
+        "scope_key": "scene:scene"
+      },
+      "outcome": "quarantine",
+      "reason": "kingpin_quarantined",
+      "reason_codes": [
+        "ENVELOPE_CONTRACTED",
+        "KINGPIN_QUARANTINED"
+      ],
+      "capability_envelope": {
+        "level": "quarantined",
+        "tools": [],
+        "revision": 3,
+        "clean_evaluations": 0,
+        "restoration_step_after": 2,
+        "revoked_tools": []
+      },
+      "cde_gate": 2,
+      "tool_floor_gate": 0,
+      "effective_gate": 2,
+      "effective_gate_label": "LEASE REQUIRED",
+      "evidence_requirements": [],
+      "missing_evidence": [],
+      "authority_requirement": "lease"
+    },
+    {
+      "schema_version": "1.0",
+      "issuer": "kingpin",
+      "policy_version": "demo_v1",
+      "evaluation_id": "evaluation-25",
+      "context": {
+        "session_id": "s",
+        "speaker_id": "actor",
+        "channel_id": "channel",
+        "scope_key": "scene:scene"
+      },
+      "outcome": "quarantine",
+      "reason": "kingpin_quarantined",
+      "reason_codes": [
+        "REENTRY_PENDING",
+        "KINGPIN_QUARANTINED"
+      ],
+      "capability_envelope": {
+        "level": "quarantined",
+        "tools": [],
+        "revision": 3,
+        "clean_evaluations": 1,
+        "restoration_step_after": 2,
+        "revoked_tools": []
+      },
+      "cde_gate": 0,
+      "tool_floor_gate": 0,
+      "effective_gate": 0,
+      "effective_gate_label": "PASS",
+      "evidence_requirements": [],
+      "missing_evidence": [],
+      "authority_requirement": "none"
+    },
+    {
+      "schema_version": "1.0",
+      "issuer": "kingpin",
+      "policy_version": "demo_v1",
+      "evaluation_id": "evaluation-26",
+      "context": {
+        "session_id": "s",
+        "speaker_id": "actor",
+        "channel_id": "channel",
+        "scope_key": "scene:scene"
+      },
+      "outcome": "allow",
+      "reason": "allowed",
+      "reason_codes": [
+        "ENVELOPE_RESTORED_ONE_STEP",
+        "ALLOWED"
+      ],
+      "capability_envelope": {
+        "level": "read_only",
+        "tools": [
+          "fs.list",
+          "fs.read"
+        ],
+        "revision": 4,
+        "clean_evaluations": 0,
+        "restoration_step_after": 2,
+        "revoked_tools": []
+      },
+      "cde_gate": 0,
+      "tool_floor_gate": 0,
+      "effective_gate": 0,
+      "effective_gate_label": "PASS",
+      "evidence_requirements": [],
+      "missing_evidence": [],
+      "authority_requirement": "none"
+    },
+    {
+      "schema_version": "1.0",
+      "issuer": "kingpin",
+      "policy_version": "demo_v1",
+      "evaluation_id": "evaluation-27",
+      "context": {
+        "session_id": "s",
+        "speaker_id": "actor",
+        "channel_id": "channel",
+        "scope_key": "scene:scene"
+      },
+      "outcome": "allow",
+      "reason": "allowed",
+      "reason_codes": [
+        "REENTRY_PENDING",
+        "ALLOWED"
+      ],
+      "capability_envelope": {
+        "level": "read_only",
+        "tools": [
+          "fs.list",
+          "fs.read"
+        ],
+        "revision": 4,
+        "clean_evaluations": 1,
+        "restoration_step_after": 2,
+        "revoked_tools": []
+      },
+      "cde_gate": 0,
+      "tool_floor_gate": 0,
+      "effective_gate": 0,
+      "effective_gate_label": "PASS",
+      "evidence_requirements": [],
+      "missing_evidence": [],
+      "authority_requirement": "none"
+    },
+    {
+      "schema_version": "1.0",
+      "issuer": "kingpin",
+      "policy_version": "demo_v1",
+      "evaluation_id": "evaluation-28",
+      "context": {
+        "session_id": "s",
+        "speaker_id": "actor",
+        "channel_id": "channel",
+        "scope_key": "scene:scene"
+      },
+      "outcome": "allow",
+      "reason": "allowed",
+      "reason_codes": [
+        "ENVELOPE_RESTORED_ONE_STEP",
+        "ALLOWED"
+      ],
+      "capability_envelope": {
+        "level": "non_destructive",
+        "tools": [
+          "fs.list",
+          "fs.read",
+          "fs.write",
+          "git.commit"
+        ],
+        "revision": 5,
+        "clean_evaluations": 0,
+        "restoration_step_after": 2,
+        "revoked_tools": []
+      },
+      "cde_gate": 0,
+      "tool_floor_gate": 0,
+      "effective_gate": 0,
+      "effective_gate_label": "PASS",
+      "evidence_requirements": [],
+      "missing_evidence": [],
+      "authority_requirement": "none"
+    },
+    {
+      "schema_version": "1.0",
+      "issuer": "kingpin",
+      "policy_version": "demo_v1",
+      "evaluation_id": "evaluation-29",
+      "context": {
+        "session_id": "s",
+        "speaker_id": "actor",
+        "channel_id": "channel",
+        "scope_key": "scene:scene"
+      },
+      "outcome": "allow",
+      "reason": "allowed",
+      "reason_codes": [
+        "REENTRY_PENDING",
+        "ALLOWED"
+      ],
+      "capability_envelope": {
+        "level": "non_destructive",
+        "tools": [
+          "fs.list",
+          "fs.read",
+          "fs.write",
+          "git.commit"
+        ],
+        "revision": 5,
+        "clean_evaluations": 1,
+        "restoration_step_after": 2,
+        "revoked_tools": []
+      },
+      "cde_gate": 0,
+      "tool_floor_gate": 0,
+      "effective_gate": 0,
+      "effective_gate_label": "PASS",
+      "evidence_requirements": [],
+      "missing_evidence": [],
+      "authority_requirement": "none"
+    },
+    {
+      "schema_version": "1.0",
+      "issuer": "kingpin",
+      "policy_version": "demo_v1",
+      "evaluation_id": "evaluation-30",
+      "context": {
+        "session_id": "s",
+        "speaker_id": "actor",
+        "channel_id": "channel",
+        "scope_key": "scene:scene"
+      },
+      "outcome": "allow",
+      "reason": "allowed",
+      "reason_codes": [
+        "ENVELOPE_RESTORED_ONE_STEP",
+        "ALLOWED"
+      ],
+      "capability_envelope": {
+        "level": "full",
+        "tools": [
+          "fs.list",
+          "fs.read",
+          "fs.write",
+          "git.commit",
+          "fs.delete",
+          "shell.rm",
+          "git.reset_hard"
+        ],
+        "revision": 6,
+        "clean_evaluations": 0,
+        "restoration_step_after": 2,
+        "revoked_tools": []
+      },
+      "cde_gate": 0,
+      "tool_floor_gate": 0,
+      "effective_gate": 0,
+      "effective_gate_label": "PASS",
+      "evidence_requirements": [],
+      "missing_evidence": [],
+      "authority_requirement": "none"
+    }
+  ],
+  "leased": {
+    "schema_version": "1.0",
+    "issuer": "kingpin",
+    "policy_version": "demo_v1",
+    "evaluation_id": "evaluation-32",
+    "context": {
+      "session_id": "s",
+      "speaker_id": "actor",
+      "channel_id": "channel",
+      "scope_key": "scene:scene"
+    },
+    "outcome": "allow",
+    "reason": "gate_2_lease_valid",
+    "reason_codes": [
+      "GATE_2_LEASE_VALID"
+    ],
+    "capability_envelope": {
+      "level": "read_only",
+      "tools": [
+        "fs.list",
+        "fs.read"
+      ],
+      "revision": 1,
+      "clean_evaluations": 0,
+      "restoration_step_after": 2,
+      "revoked_tools": []
+    },
+    "cde_gate": 2,
+    "tool_floor_gate": 0,
+    "effective_gate": 2,
+    "effective_gate_label": "LEASE REQUIRED",
+    "evidence_requirements": [],
+    "missing_evidence": [],
+    "authority_requirement": "lease"
+  },
+  "revoked": {
+    "schema_version": "1.0",
+    "issuer": "kingpin",
+    "policy_version": "demo_v1",
+    "evaluation_id": "evaluation-33",
+    "context": {
+      "session_id": "s",
+      "speaker_id": "actor",
+      "channel_id": "channel",
+      "scope_key": "scene:scene"
+    },
+    "outcome": "deny",
+    "reason": "gate_2_requires_valid_lease",
+    "reason_codes": [
+      "GATE_2_REQUIRES_VALID_LEASE"
+    ],
+    "capability_envelope": {
+      "level": "read_only",
+      "tools": [
+        "fs.list",
+        "fs.read"
+      ],
+      "revision": 2,
+      "clean_evaluations": 0,
+      "restoration_step_after": 2,
+      "revoked_tools": []
+    },
+    "cde_gate": 2,
+    "tool_floor_gate": 0,
+    "effective_gate": 2,
+    "effective_gate_label": "LEASE REQUIRED",
+    "evidence_requirements": [],
+    "missing_evidence": [],
+    "authority_requirement": "lease"
+  },
+  "recovered": [
+    {
+      "schema_version": "1.0",
+      "issuer": "kingpin",
+      "policy_version": "demo_v1",
+      "evaluation_id": "evaluation-34",
+      "context": {
+        "session_id": "s",
+        "speaker_id": "actor",
+        "channel_id": "channel",
+        "scope_key": "scene:scene"
+      },
+      "outcome": "allow",
+      "reason": "allowed",
+      "reason_codes": [
+        "REENTRY_PENDING",
+        "ALLOWED"
+      ],
+      "capability_envelope": {
+        "level": "read_only",
+        "tools": [
+          "fs.list",
+          "fs.read"
+        ],
+        "revision": 2,
+        "clean_evaluations": 1,
+        "restoration_step_after": 2,
+        "revoked_tools": []
+      },
+      "cde_gate": 0,
+      "tool_floor_gate": 0,
+      "effective_gate": 0,
+      "effective_gate_label": "PASS",
+      "evidence_requirements": [],
+      "missing_evidence": [],
+      "authority_requirement": "none"
+    },
+    {
+      "schema_version": "1.0",
+      "issuer": "kingpin",
+      "policy_version": "demo_v1",
+      "evaluation_id": "evaluation-35",
+      "context": {
+        "session_id": "s",
+        "speaker_id": "actor",
+        "channel_id": "channel",
+        "scope_key": "scene:scene"
+      },
+      "outcome": "allow",
+      "reason": "allowed",
+      "reason_codes": [
+        "ENVELOPE_RESTORED_ONE_STEP",
+        "ALLOWED"
+      ],
+      "capability_envelope": {
+        "level": "non_destructive",
+        "tools": [
+          "fs.list",
+          "fs.read",
+          "fs.write",
+          "git.commit"
+        ],
+        "revision": 3,
+        "clean_evaluations": 0,
+        "restoration_step_after": 2,
+        "revoked_tools": []
+      },
+      "cde_gate": 0,
+      "tool_floor_gate": 0,
+      "effective_gate": 0,
+      "effective_gate_label": "PASS",
+      "evidence_requirements": [],
+      "missing_evidence": [],
+      "authority_requirement": "none"
+    },
+    {
+      "schema_version": "1.0",
+      "issuer": "kingpin",
+      "policy_version": "demo_v1",
+      "evaluation_id": "evaluation-36",
+      "context": {
+        "session_id": "s",
+        "speaker_id": "actor",
+        "channel_id": "channel",
+        "scope_key": "scene:scene"
+      },
+      "outcome": "allow",
+      "reason": "allowed",
+      "reason_codes": [
+        "REENTRY_PENDING",
+        "ALLOWED"
+      ],
+      "capability_envelope": {
+        "level": "non_destructive",
+        "tools": [
+          "fs.list",
+          "fs.read",
+          "fs.write",
+          "git.commit"
+        ],
+        "revision": 3,
+        "clean_evaluations": 1,
+        "restoration_step_after": 2,
+        "revoked_tools": []
+      },
+      "cde_gate": 0,
+      "tool_floor_gate": 0,
+      "effective_gate": 0,
+      "effective_gate_label": "PASS",
+      "evidence_requirements": [],
+      "missing_evidence": [],
+      "authority_requirement": "none"
+    },
+    {
+      "schema_version": "1.0",
+      "issuer": "kingpin",
+      "policy_version": "demo_v1",
+      "evaluation_id": "evaluation-37",
+      "context": {
+        "session_id": "s",
+        "speaker_id": "actor",
+        "channel_id": "channel",
+        "scope_key": "scene:scene"
+      },
+      "outcome": "allow",
+      "reason": "allowed",
+      "reason_codes": [
+        "ENVELOPE_RESTORED_ONE_STEP",
+        "ALLOWED"
+      ],
+      "capability_envelope": {
+        "level": "full",
+        "tools": [
+          "fs.list",
+          "fs.read",
+          "fs.write",
+          "git.commit",
+          "fs.delete",
+          "shell.rm",
+          "git.reset_hard"
+        ],
+        "revision": 4,
+        "clean_evaluations": 0,
+        "restoration_step_after": 2,
+        "revoked_tools": []
+      },
+      "cde_gate": 0,
+      "tool_floor_gate": 0,
+      "effective_gate": 0,
+      "effective_gate_label": "PASS",
+      "evidence_requirements": [],
+      "missing_evidence": [],
+      "authority_requirement": "none"
+    }
+  ],
+  "oldLeaseValid": false,
+  "capabilityRevoked": {
+    "schema_version": "1.0",
+    "issuer": "kingpin",
+    "policy_version": "demo_v1",
+    "evaluation_id": "evaluation-38",
+    "context": {
+      "session_id": "s",
+      "speaker_id": "actor",
+      "channel_id": "channel",
+      "scope_key": "scene:scene"
+    },
+    "outcome": "deny",
+    "reason": "capability_revoked",
+    "reason_codes": [
+      "CAPABILITY_REVOKED"
+    ],
+    "capability_envelope": {
+      "level": "full",
+      "tools": [
+        "fs.read",
+        "fs.write",
+        "git.commit",
+        "fs.delete",
+        "shell.rm",
+        "git.reset_hard"
+      ],
+      "revision": 5,
+      "clean_evaluations": 0,
+      "restoration_step_after": 2,
+      "revoked_tools": [
+        "fs.list"
+      ]
+    },
+    "cde_gate": 0,
+    "tool_floor_gate": 0,
+    "effective_gate": 0,
+    "effective_gate_label": "PASS",
+    "evidence_requirements": [],
+    "missing_evidence": [],
+    "authority_requirement": "none"
+  },
+  "otherContext": {
+    "schema_version": "1.0",
+    "issuer": "kingpin",
+    "policy_version": "demo_v1",
+    "evaluation_id": "evaluation-39",
+    "context": {
+      "session_id": "other",
+      "speaker_id": "actor",
+      "channel_id": "channel",
+      "scope_key": "scene:scene"
+    },
+    "outcome": "allow",
+    "reason": "allowed",
+    "reason_codes": [
+      "ALLOWED"
+    ],
+    "capability_envelope": {
+      "level": "full",
+      "tools": [
+        "fs.list",
+        "fs.read",
+        "fs.write",
+        "git.commit",
+        "fs.delete",
+        "shell.rm",
+        "git.reset_hard"
+      ],
+      "revision": 0,
+      "clean_evaluations": 0,
+      "restoration_step_after": 2,
+      "revoked_tools": []
+    },
+    "cde_gate": 0,
+    "tool_floor_gate": 0,
+    "effective_gate": 0,
+    "effective_gate_label": "PASS",
+    "evidence_requirements": [],
+    "missing_evidence": [],
+    "authority_requirement": "none"
+  },
+  "consumed": {
+    "schema_version": "1.0",
+    "issuer": "kingpin",
+    "policy_version": "demo_v1",
+    "evaluation_id": "once",
+    "context": {
+      "session_id": "s",
+      "speaker_id": "actor",
+      "channel_id": "channel",
+      "scope_key": "scene:scene"
+    },
+    "outcome": "constrain",
+    "reason": "gate_1_requires_dry_run_and_diff",
+    "reason_codes": [
+      "ENVELOPE_CONTRACTED",
+      "GATE_1_REQUIRES_DRY_RUN_AND_DIFF"
+    ],
+    "capability_envelope": {
+      "level": "non_destructive",
+      "tools": [
+        "fs.list",
+        "fs.read",
+        "fs.write",
+        "git.commit"
+      ],
+      "revision": 1,
+      "clean_evaluations": 0,
+      "restoration_step_after": 2,
+      "revoked_tools": []
+    },
+    "cde_gate": 1,
+    "tool_floor_gate": 0,
+    "effective_gate": 1,
+    "effective_gate_label": "EVIDENCE REQUIRED",
+    "evidence_requirements": [
+      "dry_run",
+      "diff"
+    ],
+    "missing_evidence": [
+      "dry_run",
+      "diff"
+    ],
+    "authority_requirement": "none"
+  },
+  "duplicateError": "CDE evaluation already consumed",
+  "reusedInOtherContext": {
+    "schema_version": "1.0",
+    "issuer": "kingpin",
+    "policy_version": "demo_v1",
+    "evaluation_id": "once",
+    "context": {
+      "session_id": "s",
+      "speaker_id": "actor",
+      "channel_id": "other",
+      "scope_key": "scene:scene"
+    },
+    "outcome": "allow",
+    "reason": "allowed",
+    "reason_codes": [
+      "ALLOWED"
+    ],
+    "capability_envelope": {
+      "level": "full",
+      "tools": [
+        "fs.list",
+        "fs.read",
+        "fs.write",
+        "git.commit",
+        "fs.delete",
+        "shell.rm",
+        "git.reset_hard"
+      ],
+      "revision": 0,
+      "clean_evaluations": 0,
+      "restoration_step_after": 2,
+      "revoked_tools": []
+    },
+    "cde_gate": 0,
+    "tool_floor_gate": 0,
+    "effective_gate": 0,
+    "effective_gate_label": "PASS",
+    "evidence_requirements": [],
+    "missing_evidence": [],
+    "authority_requirement": "none"
+  }
+}
