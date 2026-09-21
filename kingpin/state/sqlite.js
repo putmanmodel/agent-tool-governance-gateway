@@ -1,3 +1,5 @@
+import { validateReview, validateReviewTransition } from '../review/model.js';
+import { canonical } from '../audit/events.js';
 import { validateEvent } from '../audit/events.js';
 import crypto from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
@@ -7,6 +9,7 @@ import { check, validContext, validLease, validEpoch } from './interfaces.js';
 const schema = readFileSync(new URL('./schema.sql', import.meta.url), 'utf8');
 const migration = readFileSync(new URL('./migrations/002_lease_revocation.sql', import.meta.url), 'utf8');
 const auditMigration = readFileSync(new URL('./migrations/003_governance_events.sql', import.meta.url), 'utf8');
+const reviewMigration = readFileSync(new URL('./migrations/004_human_review.sql', import.meta.url), 'utf8');
 const nonceForToken = token => crypto.createHash('sha256').update(token).digest('hex');
 const schemaQuery = "SELECT type, name, tbl_name, sql FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%' ORDER BY name";
 const reference = new DatabaseSync(':memory:');
@@ -17,6 +20,8 @@ reference.exec(migration);
 expectedSchemas[2] = JSON.stringify(reference.prepare(schemaQuery).all());
 reference.exec(auditMigration);
 expectedSchemas[3] = JSON.stringify(reference.prepare(schemaQuery).all());
+reference.exec(reviewMigration);
+expectedSchemas[4] = JSON.stringify(reference.prepare(schemaQuery).all());
 reference.close();
 
 export class SQLiteStateStore {
@@ -50,13 +55,17 @@ export class SQLiteStateStore {
           this.#verify(2);
           this.#db.exec(auditMigration);
         }
+        if (this.#db.prepare('PRAGMA user_version').get().user_version === 3) {
+          this.#verify(3);
+          this.#db.exec(reviewMigration);
+        }
         this.#verify();
         this.#db.exec('COMMIT');
       } catch (error) { this.#db.exec('ROLLBACK'); throw error; }
     } catch (error) { this.#db?.close(); this.#db = undefined; throw error; }
   }
 
-  #verify(version = 3) {
+  #verify(version = 4) {
     check(this.#db.prepare('PRAGMA user_version').get().user_version === version, 'unsupported SQLite schema version');
     check(JSON.stringify(this.#db.prepare(schemaQuery).all()) === expectedSchemas[version], 'incompatible SQLite schema');
     check(this.#db.prepare('PRAGMA quick_check').all().every(row => row.quick_check === 'ok'), 'SQLite integrity check failed');
@@ -84,6 +93,14 @@ export class SQLiteStateStore {
         const record = validateEvent(JSON.parse(row.record));
         check(record.event_id === row.event_id && record.request_id === row.request_id
           && Number.isSafeInteger(row.sequence) && row.sequence > 0, 'invalid audit record binding');
+      }
+    }
+    if (version >= 4) {
+      for (const row of this.#db.prepare('SELECT * FROM reviews').all()) {
+        const review = validateReview(JSON.parse(row.record));
+        check(row.review_id === review.review_id && row.status === review.status
+          && row.context_key === canonical(review.context) && row.evaluation_id === review.evaluation_id
+          && row.decision_id === review.decision_id && review.policy_fingerprint === fingerprint, 'invalid persisted review');
       }
     }
     if (this.#toolIds) {
@@ -130,6 +147,25 @@ export class SQLiteStateStore {
       const guard = fn => (...args) => { check(open, 'transaction ended'); return fn(...args); };
       const run = (sql, ...args) => this.#db.prepare(sql).run(...args);
       const tx = {
+        reviews: {
+          get: guard(id => {
+            const row = this.#db.prepare('SELECT record FROM reviews WHERE review_id = ?').get(id);
+            return row ? validateReview(JSON.parse(row.record)) : undefined;
+          }),
+          list: guard(() => this.#db.prepare('SELECT record FROM reviews ORDER BY rowid').all().map(row => validateReview(JSON.parse(row.record)))),
+          insert: guard(record => {
+            validateReview(record); check(record.status === 'pending', 'review must start pending');
+            run('INSERT INTO reviews VALUES (?, ?, ?, ?, ?, ?)', record.review_id, canonical(record.context),
+              record.evaluation_id, record.decision_id, record.status, JSON.stringify(record));
+          }),
+          save: guard(record => {
+            const row = this.#db.prepare('SELECT record FROM reviews WHERE review_id = ?').get(record.review_id);
+            check(row, 'missing review');
+            const previous = JSON.parse(row.record); validateReviewTransition(previous, record);
+            check(run('UPDATE reviews SET status = ?, record = ? WHERE review_id = ? AND status = ?',
+              record.status, JSON.stringify(record), record.review_id, previous.status).changes === 1, 'review race');
+          }),
+        },
         audit: { append: guard(record => {
           validateEvent(record);
           const inserted = run('INSERT INTO governance_events(event_id, request_id, record) VALUES (?, ?, ?)',

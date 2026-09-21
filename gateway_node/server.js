@@ -204,6 +204,8 @@ export function createGatewayApp({
       req.auditContext.decision_id = crypto.randomUUID();
       const authorityDecision = authority.decide(turn.governance_signal, body, topEvent.event_id, req.auditContext);
       enforcement = enforceAuthorityDecision(authorityDecision);
+      const reviewId = authority.reviewIdForDecision?.(authorityDecision);
+      if (reviewId) res.set?.('X-Review-ID', reviewId);
     } catch (err) {
       try { authority.recordEnforcement(body, req.auditContext, { outcome: 'failed',
         evaluation_id: topEvent.event_id ?? null, reason_codes: ['AUTHORITY_OR_AUDIT_FAILURE'] }); } catch {}
@@ -265,10 +267,38 @@ export function createGatewayApp({
     } catch { res.status(400).json({ error: "Operation rejected" }); }
   }));
 
-  // A reviewer-only boundary, not a new review-resolution authority mechanism.
-  app.get("/review/access", protectedRoute("review.access", (req, res) => {
+  app.get('/reviews', protectedRoute('review.access', (req, res) => {
+    try { res.json({ reviews: authority.listReviews(req.authPrincipal) }); }
+    catch { res.status(403).json({ error: 'Review unavailable or forbidden' }); }
+  }));
+  app.get('/reviews/:review_id', protectedRoute('review.access', (req, res) => {
+    try { res.json(authority.getReview(req.params.review_id, req.authPrincipal)); }
+    catch { res.status(403).json({ error: 'Review unavailable or forbidden' }); }
+  }));
+  for (const resolution of ['approve', 'deny']) {
+    app.post(`/reviews/:review_id/${resolution}`, protectedRoute('review.resolve', (req, res) => {
+      try { res.json(authority.resolveReview(req.params.review_id, resolution, req.authPrincipal, req.auditContext)); }
+      catch { res.status(409).json({ error: 'Review unavailable, forbidden or already resolved' }); }
+    }));
+  }
+  app.post('/reviews/:review_id/execute', protectedRoute('runtime.evaluate', (req, res) => {
+    try {
+      const result = authority.consumeReview(req.params.review_id, req.body, req.authPrincipal);
+      if (!result.execution_authorized) {
+        res.status(403).json({ review_id: result.review_id, execution_authorized: false, reason: result.reason });
+        return;
+      }
+      const enforcement = enforceAuthorityDecision(result.authority_decision);
+      authority.recordEnforcement(req.body, { ...result.correlation, principal_id: req.authPrincipal.principal_id,
+        redact: value => authentication.redact(value) }, { outcome: result.authority_decision.outcome,
+        evaluation_id: result.authority_decision.evaluation_id, reason_codes: result.authority_decision.reason_codes });
+      res.status(enforcement.status).json({ ...enforcement.response, review_id: result.review_id,
+        execution_authorized: true, authorization_consumed: true });
+    } catch { res.status(409).json({ error: 'Review execution refused' }); }
+  }));
+  app.get('/review/access', protectedRoute('review.access', (req, res) => {
     res.json({ principal_id: req.authPrincipal.principal_id, role: req.authPrincipal.role,
-      resolution_supported: false });
+      resolution_supported: true });
   }));
   // Do not expose JSON parser stacks, internal errors or reflected payloads.
   app.use((err, req, res, next) => {

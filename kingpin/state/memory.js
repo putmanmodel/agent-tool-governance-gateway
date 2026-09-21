@@ -1,8 +1,11 @@
+import { validateReview, validateReviewTransition } from '../review/model.js';
+import { canonical } from '../audit/events.js';
 import { validateEvent } from '../audit/events.js';
 import { check, validContext, validLease, validEpoch } from './interfaces.js';
 
 export class MemoryStateStore {
   #events = [];
+  #reviews = new Map();
   #contexts = new Map();
   #evaluations = new Map();
   #revocations = new Map();
@@ -21,6 +24,7 @@ export class MemoryStateStore {
   transaction(work) {
     check(!this.#closed && !this.#active && this.#policy !== undefined, 'store unavailable or unbound');
     const events = structuredClone(this.#events);
+    const reviews = structuredClone(this.#reviews);
     const contexts = structuredClone(this.#contexts), evaluations = structuredClone(this.#evaluations);
     const revocations = structuredClone(this.#revocations), leases = structuredClone(this.#leases);
     let leaseEpoch = this.#leaseEpoch;
@@ -30,6 +34,23 @@ export class MemoryStateStore {
     const guard = fn => (...args) => { check(open, 'transaction ended'); return fn(...args); };
     const exists = key => check(contexts.has(key), 'missing context');
     const tx = {
+      reviews: {
+        get: guard(id => structuredClone(reviews.get(id))),
+        list: guard(() => structuredClone([...reviews.values()])),
+        insert: guard(record => {
+          validateReview(record);
+          check(record.status === 'pending' && !reviews.has(record.review_id), 'duplicate/nonpending review');
+          check(evaluations.get(canonical(record.context))?.has(record.evaluation_id), 'missing review evaluation');
+          check(![...reviews.values()].some(r => r.decision_id === record.decision_id
+            || (canonical(r.context) === canonical(record.context) && r.evaluation_id === record.evaluation_id)), 'duplicate review evaluation');
+          reviews.set(record.review_id, structuredClone(record));
+        }),
+        save: guard(record => {
+          check(reviews.has(record.review_id), 'missing review');
+          validateReviewTransition(reviews.get(record.review_id), record);
+          reviews.set(record.review_id, structuredClone(record));
+        }),
+      },
       audit: { append: guard(record => {
         validateEvent(record);
         check(!events.some(e => e.event_id === record.event_id), 'duplicate audit event');
@@ -90,6 +111,7 @@ export class MemoryStateStore {
       const result = work(tx);
       check(!result || typeof result.then !== 'function', 'async transaction not supported');
       this.#events = events;
+      this.#reviews = reviews;
       this.#contexts = contexts; this.#evaluations = evaluations;
       this.#revocations = revocations; this.#leases = leases;
       this.#leaseEpoch = leaseEpoch; this.#nonceRevocations = nonceRevocations;

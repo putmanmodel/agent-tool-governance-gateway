@@ -29,7 +29,24 @@ export function event(type, context, fields, clock) {
 }
 const keys = ['schema_version', 'event_id', 'event_type', 'timestamp_utc', 'request_id', ...nullable,
   'policy_version', 'context', 'reason_codes', 'requirements', 'envelope', 'gate', 'signal', 'lease_epoch'];
+export const REVIEW_EVENT_TYPES = Object.freeze(['review.requested', 'review.approved', 'review.denied',
+  'review.invalidated', 'review.execution_authorized', 'review.execution_consumed']);
+export function reviewEvent(type, context, fields, clock) {
+  const { review_id, reviewer_principal_id, ...baseFields } = fields;
+  const base = event('review.requested', context, baseFields, clock);
+  return validateEvent({ ...base, schema_version: '2.0', event_type: type, review_id, reviewer_principal_id });
+}
 export function validateEvent(record) {
+  if (record?.schema_version === '2.0') {
+    const { review_id, reviewer_principal_id, ...base } = record;
+    if (!REVIEW_EVENT_TYPES.includes(record.event_type) || typeof review_id !== 'string'
+        || !/^[a-f0-9-]{36}$/.test(review_id)
+        || !(reviewer_principal_id === null || (typeof reviewer_principal_id === 'string' && reviewer_principal_id.length))) {
+      throw new Error('Invalid governance review event');
+    }
+    validateEvent({ ...base, schema_version: '1.0', event_type: 'review.requested' });
+    return record;
+  }
   const fail = () => { throw new Error('Invalid governance audit event'); };
   if (!record || Object.keys(record).sort().join() !== [...keys].sort().join()
       || record.schema_version !== '1.0' || !EVENT_TYPES.includes(record.event_type)

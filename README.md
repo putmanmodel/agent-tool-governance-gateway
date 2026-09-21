@@ -100,3 +100,7 @@ Paper 9 proof/break evaluation is available separately via
 `npm --prefix gateway_node run conformance`. See the
 [conformance harness](conformance/README.md) for its registry, coverage limits and
 canonical JSONL artifact. Runtime operational logs retain their existing format.
+
+Persistent [HUMAN REVIEW resolution](kingpin/review/README.md) now supports
+authenticated reviewers, durable bounded approval/denial, current-state
+revalidation and atomic one-use authorization. It does not expand authority.

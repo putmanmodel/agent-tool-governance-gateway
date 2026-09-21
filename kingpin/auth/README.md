@@ -52,7 +52,7 @@ redacted. Do not put credentials in tool arguments or other payload fields.
 | --- | --- | --- |
 | agent | `runtime.evaluate`, `runtime.use_lease` | `POST /turn`, `POST /tool`; lease presentation remains subject to Kingpin validation |
 | authority_admin | `authority.issue_lease`, `authority.revoke_lease`, `authority.revoke_all` | `POST /lease`, `POST /revoke`, `POST /revoke/nonce`, `POST /revoke/all` |
-| reviewer | `review.access` | `GET /review/access` only |
+| reviewer | `review.access`, `review.resolve` | review access, scoped list/inspect and approve/deny |
 
 `authority.revoke_lease` also gates the existing `/revoke` operation for
 context-scoped capability revocation. Admin does not inherit agent or reviewer
@@ -128,14 +128,13 @@ authority transcript/outcomes stay unchanged.
 
 ## Minimal reviewer boundary
 
-No persistent review queue or review-resolution operation exists in Kingpin.
-`GET /review/access` therefore authenticates reviewer permission and returns
-`resolution_supported: false`, with the trusted principal ID and role. It does
-not approve/deny a request, mutate governance state or bypass a HUMAN REVIEW
-outcome. There is no `/review/resolve` endpoint and no `review.resolve` grant.
-Agents cannot approve themselves; admins do not implicitly become reviewers.
-Bound review resolution and its changed-argument checks remain deferred until
-an actual resolution operation is designed.
+Persistent [HUMAN REVIEW resolution](../review/README.md) now supplies scoped
+list/inspect, approve/deny and one-use agent consumption. Reviewer permissions are
+`review.access` and `review.resolve`; agents and authority admins do not inherit
+them. `GET /review/access` reports `resolution_supported: true`. Reviewer entries
+may carry exact `allowed_contexts`; omission explicitly gives a global reviewer.
+Approval satisfies only the review condition and never overrides current policy,
+evidence, envelope, lease/revocation or request binding.
 
 ## Trust and deployment limits
 
@@ -150,7 +149,7 @@ factory remain trusted host-code APIs. They intentionally do not accept a
 caller-chosen principal as a substitute for HTTP authentication. Do not hand an
 untrusted agent a runtime object, database handle or auth configuration. Detailed
 `validateLease`, `hasValidLease`, policy loading and store construction remain
-in-process only. No review resolution is implemented even for direct callers.
+in-process only. Direct review APIs also remain trusted host control-plane APIs.
 
 This is not an identity platform. There are no accounts, passwords, OAuth/JWTs,
 roles administration, per-token expiry, rate limiting, cryptographic lease

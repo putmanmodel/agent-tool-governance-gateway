@@ -1,4 +1,5 @@
-import { event, correlation, bindingHash } from './audit/events.js';
+import { requestBinding, reviewRequest, reviewerMayAccess, validateReview } from './review/model.js';
+import { event, reviewEvent, correlation, bindingHash } from './audit/events.js';
 import crypto from "node:crypto";
 import { loadPolicy } from "./policy/loader.js";
 import { validatePolicy } from "./policy/validator.js";
@@ -57,6 +58,8 @@ export class KingpinAuthority {
   #tools;
   #store;
   #auditClock;
+  #policyFingerprint;
+  #reviewIds = new WeakMap();
 
   constructor({ clock = Date.now, auditClock = Date.now, policy = loadPolicy(), store = new MemoryStateStore() } = {}) {
     this.#policy = validatePolicy(policy);
@@ -64,7 +67,8 @@ export class KingpinAuthority {
     this.clock = clock;
     this.#auditClock = auditClock;
     assertStore(store);
-    store.bindPolicy(crypto.createHash("sha256").update(canonical(this.#policy)).digest("hex"), [...this.#tools.keys()]);
+    this.#policyFingerprint = crypto.createHash("sha256").update(canonical(this.#policy)).digest("hex");
+    store.bindPolicy(this.#policyFingerprint, [...this.#tools.keys()]);
     this.#store = store;
   }
 
@@ -137,7 +141,8 @@ export class KingpinAuthority {
   decide(signal, request, evaluation_id, auditContext) {
     const audit = correlation(auditContext);
     audit.decision_id ??= crypto.randomUUID();
-    return this.#store.transaction(tx => {
+    let reviewId;
+    const result = this.#store.transaction(tx => {
       const previous = this._lookup(tx, request).state;
       this._audit(tx, 'cde.signal.created', audit, request, { evaluation_id,
         gate: signal.gate, signal: { gate: signal.gate, reason_codes: signal.reason_codes,
@@ -162,9 +167,27 @@ export class KingpinAuthority {
       }
       if (lease_check && lease_check !== 'ok') this._audit(tx, 'lease.rejected', audit, request, fields);
       this._audit(tx, 'authority.decision', audit, request, fields);
-      if (decision.outcome === 'human_review') this._audit(tx, 'review.requested', audit, request, fields);
+      if (decision.outcome === 'human_review') {
+        const binding = requestBinding(request, audit.principal_id);
+        const review = { schema_version: '1.0', review_id: crypto.randomUUID(),
+          request_id: audit.request_id, evaluation_id, decision_id: audit.decision_id,
+          principal_id: audit.principal_id, agent_id: request.speaker_id, context: decision.context,
+          tool_id: request.tool, binding, binding_hash: bindingHash(binding), policy_version: this.#policy.policy_version,
+          policy_fingerprint: this.#policyFingerprint, original_outcome: decision.outcome,
+          original_envelope: decision.capability_envelope, original_reason_codes: decision.reason_codes,
+          cde_gate: signal.gate, signal_reason_codes: signal.reason_codes, created_at: new Date(this.#auditClock()).toISOString(),
+          status: 'pending', resolved_at: null, reviewer_principal_id: null, resolution: null,
+          resolution_reason: null, consumed_at: null, execution: null };
+        // Never persist reflected authentication secrets as identity metadata.
+        if (audit.redact && canonical(audit.redact(review)) !== canonical(review)) throw new Error('Unsafe review metadata');
+        tx.reviews.insert(validateReview(review));
+        this._reviewAudit(tx, 'review.requested', review, fields);
+        reviewId = review.review_id;
+      }
       return decision;
     });
+    if (reviewId) this.#reviewIds.set(result, reviewId);
+    return result;
   }
 
   _decide(tx, signal, request, evaluation_id, leaseObserved = () => {}) {
@@ -196,7 +219,11 @@ export class KingpinAuthority {
     }
 
     tx.contexts.save(key, state);
+    return this._determine(tx, signal, request, evaluation_id, context, state, reasons, leaseObserved);
+  }
 
+  _determine(tx, signal, request, evaluation_id, context, state, reasons, leaseObserved = () => {},
+    reviewSatisfied = false, boundLeaseValidation = null) {
     // Unknown tools retain the legacy floor projection but never enter the
     // envelope. Request-supplied classification/requirements are not consulted.
     const floor = this.#tools.get(request.tool)?.minimum_authority_floor ?? 0;
@@ -212,12 +239,12 @@ export class KingpinAuthority {
       outcome = "quarantine"; reason = "kingpin_quarantined";
     } else if (!this._tools(state).includes(request.tool)) {
       outcome = "deny"; reason = state.revoked.has(request.tool) ? "capability_revoked" : "outside_capability_envelope";
-    } else if (signal.reason_codes.includes("LOW_CONFIDENCE")) {
+    } else if (!reviewSatisfied && signal.reason_codes.includes("LOW_CONFIDENCE")) {
       outcome = "human_review"; reason = "low_confidence_requires_human_review";
     } else if (missing.length) {
       outcome = "constrain"; reason = "gate_1_requires_dry_run_and_diff";
     } else if (leaseRequired) {
-      const leaseValidation = this._validateLease(tx, request);
+      const leaseValidation = boundLeaseValidation ?? this._validateLease(tx, request);
       leaseObserved(leaseValidation);
       if (!leaseValidation.valid) {
         // Keep the v1 wire reason; detailed reasons are available through validateLease.
@@ -233,6 +260,106 @@ export class KingpinAuthority {
       effective_gate_label: LABELS[effective], evidence_requirements: evidence,
       missing_evidence: missing, authority_requirement: leaseRequired ? "lease" : "none",
     };
+  }
+
+  reviewIdForDecision(decision) { return this.#reviewIds.get(decision) ?? null; }
+
+  _reviewAudit(tx, type, review, fields = {}) {
+    const tool = this.#policy.tools.find(tool => tool.id === review.tool_id);
+    tx.audit.append(reviewEvent(type, { request_id: review.request_id, principal_id: review.principal_id,
+      decision_id: review.decision_id }, { evaluation_id: review.evaluation_id, review_id: review.review_id,
+      reviewer_principal_id: review.reviewer_principal_id, agent_id: review.agent_id,
+      context: review.context, tool_id: review.tool_id, tool_class: tool?.class ?? null,
+      arguments_hash: review.binding.arguments_hash, policy_version: review.policy_version,
+      outcome: review.status, reason_codes: review.execution ? [review.execution.reason] : review.original_reason_codes,
+      envelope: review.original_envelope, gate: review.cde_gate, ...fields }, this.#auditClock));
+  }
+
+  _reviewAccess(principal, review, resolve = false) {
+    if (!review || !reviewerMayAccess(principal, review)
+        || (resolve && (!principal.permissions.includes('review.resolve') || principal.principal_id === review.principal_id))) {
+      throw new Error('Review unavailable or forbidden');
+    }
+  }
+
+  listReviews(principal) {
+    if (!principal?.permissions?.includes('review.access')) throw new Error('Review access forbidden');
+    return this.#store.transaction(tx => tx.reviews.list().filter(r => r.status === 'pending' && reviewerMayAccess(principal, r)));
+  }
+
+  getReview(reviewId, principal) {
+    return this.#store.transaction(tx => {
+      const review = tx.reviews.get(reviewId); this._reviewAccess(principal, review); return review;
+    });
+  }
+
+  _revalidateReview(tx, review) {
+    const rejected = reason => ({ eligible: false, reason, decision: null, lease_check: null });
+    if (!review.principal_id) return rejected('UNBOUND_REQUEST_PRINCIPAL');
+    if (review.policy_fingerprint !== this.#policyFingerprint || review.policy_version !== this.#policy.policy_version) return rejected('POLICY_CHANGED');
+    const request = reviewRequest(review);
+    const { key, state } = this._lookup(tx, request);
+    if (!state) return rejected('AUTHORITY_STATE_MISSING');
+    if (state.level > LEVELS.indexOf(review.original_envelope.level)) return rejected('AUTHORITY_CONTRACTED');
+    let leaseValidation = { valid: false, reason: 'missing' };
+    if (review.binding.lease_present) {
+      const lease = tx.leases.getByNonce(review.binding.lease_nonce);
+      leaseValidation = this._validateLeaseRecord(tx, lease, key, state, review.tool_id,
+        lease && crypto.createHash('sha256').update(lease.args).digest('hex') === review.binding.arguments_hash);
+      if (!leaseValidation.valid) return { ...rejected(leaseValidation.reason.toUpperCase()), lease_check: leaseValidation.reason };
+    }
+    const decision = this._determine(tx, { gate: review.cde_gate, reason_codes: review.signal_reason_codes },
+      request, review.evaluation_id, review.context, state, [], () => {}, true, leaseValidation);
+    return { eligible: decision.outcome === 'allow', reason: decision.reason.toUpperCase(), decision,
+      lease_check: review.binding.lease_present || decision.authority_requirement === 'lease' ? leaseValidation.reason : null };
+  }
+
+  resolveReview(reviewId, resolution, principal, auditContext = {}) {
+    if (!['approve','deny'].includes(resolution)) throw new Error('Invalid review resolution');
+    return this.#store.transaction(tx => {
+      const review = tx.reviews.get(reviewId); this._reviewAccess(principal, review, true);
+      if (review.status !== 'pending') throw new Error('Review already resolved');
+      review.resolved_at = new Date(this.#auditClock()).toISOString();
+      review.reviewer_principal_id = principal.principal_id; review.resolution = resolution;
+      review.resolution_reason = resolution === 'approve' ? 'REVIEWER_APPROVED' : 'REVIEWER_DENIED';
+      const result = resolution === 'approve' ? this._revalidateReview(tx, review)
+        : { eligible: false, reason: 'REVIEWER_DENIED', lease_check: null };
+      review.status = resolution === 'deny' ? 'denied' : result.eligible ? 'approved' : 'invalidated';
+      review.execution = { eligible: result.eligible, reason: result.reason, checked_at: review.resolved_at };
+      if (auditContext.redact && canonical(auditContext.redact(review)) !== canonical(review)) throw new Error('Unsafe review metadata');
+      tx.reviews.save(review);
+      this._reviewAudit(tx, resolution === 'approve' ? 'review.approved' : 'review.denied', review,
+        { reason_codes: [review.resolution_reason], lease_check: result.lease_check });
+      if (review.status === 'invalidated') this._reviewAudit(tx, 'review.invalidated', review, { lease_check: result.lease_check });
+      return { review, ready_for_consumption: result.eligible, execution_authorized: false };
+    });
+  }
+
+  consumeReview(reviewId, request, principal) {
+    if (!principal?.permissions?.includes('runtime.evaluate')) throw new Error('Review consumption forbidden');
+    return this.#store.transaction(tx => {
+      const review = tx.reviews.get(reviewId);
+      if (!review || review.principal_id !== principal.principal_id || review.agent_id !== principal.agent_id
+          || request.speaker_id !== principal.agent_id
+          || !principal.allowed_contexts?.some(scope => ['session_id','channel_id','scene_id','task_id']
+            .every(key => scope[key] === (request[key] ?? (key === 'session_id' ? 'default' : null))))
+          || canonical(contextFor(request)) !== canonical(review.context)) throw new Error('Review binding forbidden');
+      if (review.status !== 'approved') throw new Error('Review not approved or already consumed');
+      const binding = requestBinding(request, principal.principal_id);
+      const result = bindingHash(binding) === review.binding_hash ? this._revalidateReview(tx, review)
+        : { eligible: false, reason: 'REQUEST_BINDING_CHANGED', decision: null, lease_check: null };
+      const now = new Date(this.#auditClock()).toISOString();
+      review.execution = { eligible: result.eligible, reason: result.reason, checked_at: now };
+      review.status = result.eligible ? 'consumed' : 'invalidated';
+      review.consumed_at = result.eligible ? now : null;
+      tx.reviews.save(review);
+      if (result.eligible) {
+        this._reviewAudit(tx, 'review.execution_authorized', review, { lease_check: result.lease_check, envelope: result.decision.capability_envelope });
+        this._reviewAudit(tx, 'review.execution_consumed', review, { lease_check: result.lease_check, envelope: result.decision.capability_envelope });
+      } else this._reviewAudit(tx, 'review.invalidated', review, { lease_check: result.lease_check });
+      return { review_id: review.review_id, correlation: { request_id: review.request_id, decision_id: review.decision_id }, execution_authorized: result.eligible,
+        reason: result.reason, authority_decision: result.decision };
+    });
   }
 
   issue(request, auditContext) {
@@ -272,15 +399,19 @@ export class KingpinAuthority {
   _validateLease(tx, request) {
     const { key, state } = this._lookup(tx, request);
     const lease = tx.leases.get(request.lease_token);
+    return this._validateLeaseRecord(tx, lease, key, state, request.tool, lease?.args === canonical(request.args ?? {}));
+  }
+
+  _validateLeaseRecord(tx, lease, key, state, tool, argsMatch) {
     const result = reason => ({ valid: reason === "ok", reason });
     if (!lease) return result("missing");
-    if (!state || lease.key !== key || lease.tool !== request.tool || lease.args !== canonical(request.args ?? {})) return result("out_of_scope");
+    if (!state || lease.key !== key || lease.tool !== tool || !argsMatch) return result("out_of_scope");
     if (!(lease.expires_at_ms > this.clock())) return result("expired");
     if (lease.issuance_epoch !== tx.leaseEpoch.current()) return result("epoch_revoked");
     if (tx.nonceRevocations.has(lease.nonce)) return result("nonce_revoked");
     if (lease.revoked) return result({ EXPLICIT_REVOCATION: "explicit_revoked",
       CAPABILITY_REVOKED: "capability_revoked", ENVELOPE_CONTRACTED: "envelope_contracted" }[lease.revoked]);
-    if (!this._tools(state).includes(request.tool)) return result("outside_capability_envelope");
+    if (!this._tools(state).includes(tool)) return result("outside_capability_envelope");
     return result("ok");
   }
 

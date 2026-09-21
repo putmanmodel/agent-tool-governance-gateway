@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 const ROLE_PERMISSIONS = Object.freeze({
   agent: Object.freeze(['runtime.evaluate', 'runtime.use_lease']),
   authority_admin: Object.freeze(['authority.issue_lease', 'authority.revoke_lease', 'authority.revoke_all']),
-  reviewer: Object.freeze(['review.access']),
+  reviewer: Object.freeze(['review.access', 'review.resolve']),
 });
 const tokenShape = /^[A-Za-z0-9_-]{32,256}$/;
 const text = value => typeof value === 'string' && value.trim().length > 0;
@@ -28,27 +28,31 @@ export function createAuthentication(config) {
   const entries = config.principals.map(entry => {
     configCheck(entry && Object.hasOwn(ROLE_PERMISSIONS, entry.role));
     const agent = entry.role === 'agent';
+    const scopedReviewer = entry.role === 'reviewer' && Object.hasOwn(entry, 'allowed_contexts');
     configCheck(keys(entry, agent ? ['token', 'principal_id', 'role', 'agent_id', 'allowed_contexts']
-      : ['token', 'principal_id', 'role']));
+      : scopedReviewer ? ['token', 'principal_id', 'role', 'allowed_contexts'] : ['token', 'principal_id', 'role']));
     configCheck(text(entry.principal_id) && !ids.has(entry.principal_id)
       && typeof entry.token === 'string' && tokenShape.test(entry.token) && !tokens.has(entry.token));
     ids.add(entry.principal_id); tokens.add(entry.token);
     let contexts;
-    if (agent) {
-      configCheck(text(entry.agent_id) && Array.isArray(entry.allowed_contexts) && entry.allowed_contexts.length > 0);
+    if (agent || scopedReviewer) {
+      configCheck((!agent || text(entry.agent_id)) && Array.isArray(entry.allowed_contexts) && entry.allowed_contexts.length > 0);
       contexts = entry.allowed_contexts.map(context => {
         configCheck(keys(context, ['session_id', 'channel_id', 'scene_id', 'task_id'])
           && text(context.session_id) && text(context.channel_id)
           && [context.scene_id, context.task_id].every(value => value === null || text(value)));
         // CDE's EMA state is session-wide: distinct principals cannot share a session,
         // even when their Kingpin speaker/channel/scope keys would otherwise differ.
-        configCheck(!sessions.has(context.session_id) || sessions.get(context.session_id) === entry.principal_id);
-        sessions.set(context.session_id, entry.principal_id);
+        if (agent) {
+          configCheck(!sessions.has(context.session_id) || sessions.get(context.session_id) === entry.principal_id);
+          sessions.set(context.session_id, entry.principal_id);
+        }
         return Object.freeze({ ...context });
       });
     }
     const principal = Object.freeze({ principal_id: entry.principal_id, role: entry.role,
-      permissions: ROLE_PERMISSIONS[entry.role], ...(agent ? { agent_id: entry.agent_id, allowed_contexts: Object.freeze(contexts) } : {}) });
+      permissions: ROLE_PERMISSIONS[entry.role], ...(agent ? { agent_id: entry.agent_id } : {}),
+      ...(contexts ? { allowed_contexts: Object.freeze(contexts) } : {}) });
     principals.add(principal);
     return { hash: digest(entry.token), principal };
   });

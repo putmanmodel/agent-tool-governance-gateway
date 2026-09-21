@@ -67,5 +67,9 @@ change. Gateway HTTP validation, CDE orchestration, request serialization, audit
 logging and mechanical enforcement remain transport responsibilities.
 
 The additional [v0.4 governance event stream](audit/README.md) records correlated
-requests, decisions, transitions and gateway enforcement. It uses SQLite schema 3
+requests, decisions, transitions and gateway enforcement. It uses SQLite schema 4
 when that store is selected; frozen boundary payloads and legacy JSONL are unchanged.
+
+[Persistent HUMAN REVIEW](review/README.md) adds bounded reviewer resolution and
+one-use agent consumption. Kingpin owns revalidation and the final decision;
+the gateway only authenticates, transports and mechanically enforces the result.

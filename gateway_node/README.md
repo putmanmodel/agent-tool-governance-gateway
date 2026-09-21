@@ -32,7 +32,7 @@ ephemeral credentials for runtime and admin calls and deletes them afterward. Al
 - `enforcement.js`: mechanically maps Kingpin's five outcomes to HTTP statuses.
 - `/lease`, `/revoke`, `/revoke/nonce`, `/revoke/all`: authenticated admin routes
   delegated to Kingpin. `/turn` and `/tool` require a scoped agent principal.
-- `/review/access`: reviewer-only boundary reporting that resolution is not yet supported.
+- `/review/access`: reviewer-only marker reporting resolution support.
 
 The original six baseline outcomes remain. The expanded demo shows 7 → 4 → 2 → 0
 eligible tools, revoked leases, then restoration after consecutive inactive CDE
@@ -65,3 +65,7 @@ fallback. CDE's 32-event regression baseline remains unchanged.
 Governed HTTP requests now return an `X-Request-ID` header for the separate
 [governance event stream](../kingpin/audit/README.md). Query it through the trusted
 Kingpin runtime API; no public audit endpoint or tool-execution claim is added.
+
+See [persistent HUMAN REVIEW](../kingpin/review/README.md) for the narrow
+`/reviews` list/inspect/approve/deny routes and original-agent `/execute` path.
+Initial `/tool` holds include `X-Review-ID`; existing decision bodies stay unchanged.

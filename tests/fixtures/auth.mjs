@@ -14,11 +14,13 @@ export const config = { schema_version: '1.0', principals: [
 export const authentication = createAuthentication(config);
 export const headers = (role = 'agent') => ({ authorization: `Bearer ${tokens[role]}` });
 export async function dispatch(app, pathname, body, suppliedHeaders = headers()) {
-  const route = app._router.stack.find(layer => layer.route?.path === pathname)?.route;
+  const route = app._router.stack.find(layer => layer.route && new RegExp('^' + layer.route.path.replace(/:[^/]+/g, '[^/]+') + '$').test(pathname))?.route;
+  const params = {};
+  route?.path.split('/').forEach((part, index) => { if (part.startsWith(':')) params[part.slice(1)] = pathname.split('/')[index]; });
   const response = { headers: {}, set(key, value) { this.headers[key] = value; return this; }, statusCode: 200, headersSent: false,
     status(code) { this.statusCode = code; return this; },
     json(value) { this.body = value; this.headersSent = true; return this; } };
   if (!route) return { ...response, statusCode: 404 };
-  await route.stack[0].handle({ body, headers: suppliedHeaders }, response);
+  await route.stack[0].handle({ body, headers: suppliedHeaders, params }, response);
   return response;
 }

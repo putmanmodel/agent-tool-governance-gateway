@@ -89,11 +89,11 @@ test('authenticated admin delegates individual nonce, legacy capability and glob
   assert.equal((await dispatch(app, '/tool', destructive)).body.reason, 'capability_revoked');
 });
 
-test('reviewer boundary is separate from admin and cannot resolve or bypass HUMAN REVIEW', async () => {
+test('reviewer boundary is separate from admin and cannot evaluate tools or use an unbound resolution route', async () => {
   const app = createGatewayApp({ authentication,
     evaluateTurn: async () => ({ ...turn, governance_signal: signal(1, 'LOW_CONFIDENCE') }), logDecision() {} });
   const status = await dispatch(app, '/review/access', undefined, headers('reviewer'));
-  assert.deepEqual(status.body, { principal_id: 'reviewer-principal', role: 'reviewer', resolution_supported: false });
+  assert.deepEqual(status.body, { principal_id: 'reviewer-principal', role: 'reviewer', resolution_supported: true });
   for (const role of ['agent', 'admin']) assert.equal((await dispatch(app, '/review/access', {}, headers(role))).statusCode, 403);
   for (const role of ['admin', 'reviewer']) assert.equal((await dispatch(app, '/tool', body, headers(role))).statusCode, 403);
   assert.equal((await dispatch(app, '/tool', { ...body, dry_run: true, diff: 'diff', approved: true })).statusCode, 428);

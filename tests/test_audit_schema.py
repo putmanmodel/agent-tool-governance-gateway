@@ -16,12 +16,15 @@ class AuditSchemaTests(unittest.TestCase):
         schema = json.loads((ROOT / 'schemas/audit/v1/GovernanceEvent.schema.json').read_text())
         Draft202012Validator.check_schema(schema)
         cls.validator = Draft202012Validator(schema, format_checker=FormatChecker())
+        review_schema = json.loads((ROOT / 'schemas/audit/v2/GovernanceReviewEvent.schema.json').read_text())
+        Draft202012Validator.check_schema(review_schema)
+        cls.review_validator = Draft202012Validator(review_schema, format_checker=FormatChecker())
         cls.events = json.loads(subprocess.check_output(
             ['node', str(ROOT / 'tests/fixtures/audit_stream.mjs')], text=True))
 
     def test_real_runtime_events_validate_and_have_order(self):
         for event in self.events:
-            self.validator.validate(event)
+            (self.review_validator if event['schema_version'] == '2.0' else self.validator).validate(event)
         self.assertEqual([e['sequence'] for e in self.events], list(range(1, len(self.events) + 1)))
         self.assertEqual(len({e['event_id'] for e in self.events}), len(self.events))
 
@@ -34,6 +37,22 @@ class AuditSchemaTests(unittest.TestCase):
         for key in self.validator.schema['required']:
             event = copy.deepcopy(self.events[0]); del event[key]
             self.assertFalse(self.validator.is_valid(event), key)
+
+    def test_full_review_lifecycle_uses_separate_versioned_schema(self):
+        events = json.loads(subprocess.check_output(
+            ['node', str(ROOT / 'tests/fixtures/review_audit_stream.mjs')], text=True))
+        reviews = [e for e in events if e['schema_version'] == '2.0']
+        self.assertEqual({e['event_type'] for e in reviews}, {
+            'review.requested', 'review.approved', 'review.denied', 'review.invalidated',
+            'review.execution_authorized', 'review.execution_consumed'})
+        for event in reviews:
+            self.review_validator.validate(event)
+            self.assertFalse(self.validator.is_valid(event))
+            for key in self.review_validator.schema['required']:
+                bad = copy.deepcopy(event); del bad[key]
+                self.assertFalse(self.review_validator.is_valid(bad), key)
+            bad = dict(event, bearer_token='secret')
+            self.assertFalse(self.review_validator.is_valid(bad))
 
     def test_existing_jsonl_writer_and_legacy_cde_records_coexist_with_product_events(self):
         frozen = json.loads((ROOT / 'tests/legacy_events.json').read_text())

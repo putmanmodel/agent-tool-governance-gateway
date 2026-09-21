@@ -75,7 +75,7 @@ identity fields. Hashes of low-entropy arguments are not secrecy guarantees.
 | `lease.revoked` | `NONCE_REVOKED` or legacy token `EXPLICIT_REVOCATION`, distinguished by reason |
 | `capability.revoked` | Existing context/tool revocation, with resulting envelope |
 | `lease.epoch_advanced` | Revoke-all advanced epoch; old lease rows were not rewritten |
-| `review.requested` | Actual HUMAN REVIEW decision; no resolution implementation |
+| `review.requested` | Actual HUMAN REVIEW decision and pending record (new records use review audit v2) |
 | `tool.enforcement.allowed` | Gateway permitted the operation |
 | `tool.enforcement.denied` | Gateway refused deny/constrain/quarantine outcome |
 | `tool.enforcement.review` | Gateway held for HUMAN REVIEW |
@@ -147,6 +147,11 @@ through the existing application factory. `/turn` is evaluation-only and does no
 produce a governed tool lifecycle; CDE persistence remains outside scope.
 
 No signing, cryptographic chaining, trusted clock, backup rollback protection,
-retention service or HUMAN REVIEW resolution is supplied. SQL triggers protect
+retention service is supplied. Persistent HUMAN REVIEW is documented separately. SQL triggers protect
 normal writes, not a hostile database owner who can alter schema/files. Existing
 process/filesystem trust boundaries remain necessary.
+
+Persistent [review lifecycle](../review/README.md) events now use the separate audit
+v2 schema, with review/reviewer IDs. SQLite schema 4 adds review state; migration
+003 and historical v1 events remain unchanged. Review creation, resolution,
+invalidation and one-use consumption commit with their required events.

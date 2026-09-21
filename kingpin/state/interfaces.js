@@ -8,6 +8,8 @@
  * work receives:
  * audit.append(event): validate and append an immutable event in the same transaction.
  * Stored/query records add a monotonically increasing sequence; no update/delete API.
+ * reviews.get(reviewId) / list() -> detached review records
+ * reviews.insert(pendingReview); reviews.save(nextReview) -> validated immutable binding/history and legal transition
  * contexts.get(key) -> {level, clean, revision} | undefined
  * contexts.create(key, state); contexts.save(key, state)
  * evaluations.consume(key, evaluationId) -> boolean (atomic insert-if-absent)

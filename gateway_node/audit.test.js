@@ -205,7 +205,7 @@ test('SQLite v2 migration preserves existing state and starts an empty separate 
   assert.throws(() => runtime.decide(signal(0), request, 'old-id'), /already consumed/);
   store.close();
   const after = new DatabaseSync(filename);
-  assert.equal(after.prepare('PRAGMA user_version').get().user_version, 3);
+  assert.equal(after.prepare('PRAGMA user_version').get().user_version, 4);
   assert.deepEqual(tables.map(table => after.prepare(`SELECT * FROM ${table}`).all()), before);
   after.close();
 });
