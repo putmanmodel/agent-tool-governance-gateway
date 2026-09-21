@@ -1,0 +1,36 @@
+// Real HTTP packaging smoke: fresh temporary configuration, actual example client,
+// process restart, then durable audit/review/epoch continuity. No fixed secrets.
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { spawn, execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'kingpin-evaluator-smoke-'));
+const script = name => fileURLToPath(new URL(name, import.meta.url));
+const python = process.env.CDE_PYTHON;
+if (!python || !path.isAbsolute(python)) throw Error('Set CDE_PYTHON to an absolute Python executable');
+let child;
+async function launch(initialize) {
+  child = spawn(process.execPath, [script('start.mjs'), path.join(directory, 'config/runtime.json'), ...(initialize ? ['--initialize'] : [])], { stdio: ['ignore','pipe','pipe'] });
+  await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(Error('Evaluator startup timed out')), 20000);
+    child.once('error', error => { clearTimeout(timer); reject(error); });
+    child.once('exit', code => { clearTimeout(timer); reject(Error(`Evaluator exited: ${code}`)); });
+    child.stdout.on('data', data => { if (data.toString().includes('Evaluation listening')) { clearTimeout(timer); resolve(); } });
+    child.stderr.on('data', () => {});
+  });
+}
+async function stop() {
+  if (!child || child.exitCode !== null) return;
+  const exited = new Promise(resolve => child.once('exit', resolve)); child.kill('SIGTERM'); await exited;
+}
+try {
+  execFileSync(process.execPath, [script('configure.mjs'), path.join(directory, 'config'), python], { stdio: 'pipe' });
+  const filename = path.join(directory, 'config/runtime.json');
+  const config = JSON.parse(fs.readFileSync(filename)); config.port = Number(process.env.EVALUATION_SMOKE_PORT || 18789);
+  fs.writeFileSync(filename, JSON.stringify(config));
+  await launch(true);
+  process.stdout.write(execFileSync(process.execPath, [script('client.mjs'), filename], { encoding: 'utf8' }));
+  await stop(); await launch(false);
+  process.stdout.write(execFileSync(process.execPath, [script('client.mjs'), filename, '--continuity'], { encoding: 'utf8' }));
+} finally { await stop(); fs.rmSync(directory, { recursive: true, force: true }); }

@@ -36,7 +36,12 @@ export function createGatewayApp({
   authority = new KingpinAuthority(),
   evaluateTurn = callCdeTurn,
   logDecision = appendDecisionLog,
+  mode = "demo",
+  adapter = null,
+  build = null,
 } = {}) {
+  if (!['demo','evaluation'].includes(mode)) throw Error('Unsupported runtime mode');
+  if (mode === 'evaluation' && (!adapter || !build || process.env.CDE_DEMO_FIXTURES === '1')) throw Error('Evaluation requires configured adapter/build and forbids demo fixtures');
   const app = express();
   const authenticatedRequests = new WeakMap();
   function auditContext(req, res) {
@@ -64,7 +69,7 @@ export function createGatewayApp({
     }
   });
   app.use(express.json({ limit: "1mb" }));
-  // Serialize this in-memory demo's evaluation → authority → enforcement sequence.
+  // Serialize this gateway's evaluation → authority → enforcement sequence.
   // A lease/revocation cannot interleave between an authority decision and its use.
   let pending = Promise.resolve();
   function serialized(handler) {
@@ -143,7 +148,7 @@ export function createGatewayApp({
     }
   }));
 
-  app.post("/tool", protectedRoute("runtime.evaluate", async (req, res) => {
+  const toolHandler = protectedRoute("runtime.evaluate", async (req, res) => {
     req.governedTool = true;
     const body = req.body || {};
     const {
@@ -171,7 +176,9 @@ export function createGatewayApp({
 
     let evaluationInput;
     try {
-      evaluationInput = buildEvaluationInput(body, process.env.CDE_DEMO_FIXTURES === "1");
+      if (mode === 'evaluation' && ['demo_fixture','governance_signal','force_gate','force_recovery','evaluation_id'].some(key => Object.hasOwn(body, key))) throw Error('Unsupported control input');
+      evaluationInput = req.observedTool ? { source: 'agent_observation', text: body.user_request }
+        : buildEvaluationInput(body, mode === 'demo' && process.env.CDE_DEMO_FIXTURES === "1");
     } catch (err) {
       try { authority.recordEnforcement({}, req.auditContext, { outcome: 'failed', reason_codes: ['INVALID_REQUEST'] }); } catch {}
       res.status(400).json({ error: "Operation rejected" });
@@ -249,8 +256,28 @@ export function createGatewayApp({
       res.status(502).json({ error: "Authority operation failed" });
       return;
     }
+    if (response.allow && adapter) {
+      try { response.tool_result = adapter.execute(body); }
+      catch {
+        try { authority.recordEnforcement(body, req.auditContext, { outcome: 'failed', reason_codes: ['ADAPTER_FAILURE'] }); } catch {}
+        res.status(422).json({ error: 'Sandbox operation failed', execution_authorized: true }); return;
+      }
+    }
     res.status(enforcement.status).json(response);
-  }));
+  });
+  app.post('/tool', toolHandler);
+  if (mode === 'evaluation') {
+    app.post('/tool/observed', (req, res) => { req.observedTool = true; return toolHandler(req, res); });
+    // No configuration, credentials, filesystem paths or operational payloads.
+    app.get('/status', (req, res) => {
+      try { authenticateRequest(req); res.json(build); }
+      catch { res.status(401).json({ error: 'Authentication required' }); }
+    });
+    app.get('/audit/:request_id', protectedRoute('audit.read', (req, res) => {
+      try { res.json({ events: authority.getEventsForRequest(req.params.request_id) }); }
+      catch { res.status(503).json({ error: 'Audit unavailable' }); }
+    }));
+  }
   app.post("/revoke/nonce", protectedRoute("authority.revoke_lease", (req, res) => {
     try {
       const result = authority.revokeLeaseNonce(req.body?.lease_nonce, req.auditContext);
@@ -292,7 +319,8 @@ export function createGatewayApp({
       authority.recordEnforcement(req.body, { ...result.correlation, principal_id: req.authPrincipal.principal_id,
         redact: value => authentication.redact(value) }, { outcome: result.authority_decision.outcome,
         evaluation_id: result.authority_decision.evaluation_id, reason_codes: result.authority_decision.reason_codes });
-      res.status(enforcement.status).json({ ...enforcement.response, review_id: result.review_id,
+      const toolResult = adapter ? { tool_result: adapter.execute(req.body) } : {};
+      res.status(enforcement.status).json({ ...enforcement.response, ...toolResult, review_id: result.review_id,
         execution_authorized: true, authorization_consumed: true });
     } catch { res.status(409).json({ error: 'Review execution refused' }); }
   }));
@@ -317,10 +345,10 @@ const port = Number(process.env.PORT || 8787);
 
 export function startServer() {
   return createGatewayApp().listen(port, "127.0.0.1", () => {
-    console.log(`gateway_node listening on http://localhost:${port}`);
+    console.log(`gateway_node v0.4.0-dev mode=demo storage=memory policy=demo_v1 listening on http://localhost:${port}`);
   });
 }
 
-if (process.env.NODE_ENV !== "test") {
+if (process.argv[1] && path.resolve(process.argv[1]) === __filename && process.env.NODE_ENV !== "test") {
   startServer();
 }

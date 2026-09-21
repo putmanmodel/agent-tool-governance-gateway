@@ -69,3 +69,9 @@ Kingpin runtime API; no public audit endpoint or tool-execution claim is added.
 See [persistent HUMAN REVIEW](../kingpin/review/README.md) for the narrow
 `/reviews` list/inspect/approve/deny routes and original-agent `/execute` path.
 Initial `/tool` holds include `X-Review-ID`; existing decision bodies stay unchanged.
+
+The [evaluator package](../evaluation/README.md) adds explicit evaluation startup,
+SQLite, a private CDE process, sandboxed read/write/delete, authenticated status
+and admin-only audit reads. `npm run demo` retains demo mode and frozen behavior.
+`/tool/observed` is an evaluation-only actual-observation ingress; `/tool` retains
+its existing wrapper. Only authorized evaluation requests reach the adapter.

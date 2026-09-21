@@ -154,3 +154,9 @@ rolls back the entire database. Existing bearer-token transport/deployment limit
 still apply. Review inspection deliberately supplies hashes and trusted summaries,
 not a full sensitive payload browser. Storage checks scan history and pending
 listing is unpaginated, consistent with this small evaluator runtime.
+
+The subsequent [controlled evaluator package](../../evaluation/README.md) supplies
+an optional real filesystem adapter after gateway permission and consumption.
+The default demo still simulates enforcement. Review semantics and at-most-once
+limitations described above are unchanged; no success event claims atomicity
+between governance storage and external execution.

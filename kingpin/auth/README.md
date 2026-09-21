@@ -172,3 +172,7 @@ explicit 401/403 checks; the standalone demo passes; `git diff --check` passes.
 Gateway tests were updated to supply credentials and expect sanitized failure
 messages. No Kingpin decision code, policy semantics, persistence schema, CDE
 code, frozen authority fixture or public v1 schema was changed by this step.
+
+The controlled evaluator adds read-only `audit.read` to authority_admin for
+`GET /audit/:request_id`. Agents/reviewers do not inherit it. Evaluation-only
+`GET /status` requires a valid credential but exposes build metadata only.

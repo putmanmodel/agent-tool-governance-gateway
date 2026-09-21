@@ -104,3 +104,8 @@ canonical JSONL artifact. Runtime operational logs retain their existing format.
 Persistent [HUMAN REVIEW resolution](kingpin/review/README.md) now supports
 authenticated reviewers, durable bounded approval/denial, current-state
 revalidation and atomic one-use authorization. It does not expand authority.
+
+For an outside developer, begin with the [controlled evaluator quickstart](evaluation/README.md).
+It provides explicit configuration, persistent SQLite startup, local credentials,
+a real sandbox adapter, a readable client and restart verification. See the
+[evaluation notice](evaluation/NOTICE.md) and [security boundaries](evaluation/SECURITY.md).

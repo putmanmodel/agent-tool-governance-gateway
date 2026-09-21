@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 
 const ROLE_PERMISSIONS = Object.freeze({
   agent: Object.freeze(['runtime.evaluate', 'runtime.use_lease']),
-  authority_admin: Object.freeze(['authority.issue_lease', 'authority.revoke_lease', 'authority.revoke_all']),
+  authority_admin: Object.freeze(['authority.issue_lease', 'authority.revoke_lease', 'authority.revoke_all', 'audit.read']),
   reviewer: Object.freeze(['review.access', 'review.resolve']),
 });
 const tokenShape = /^[A-Za-z0-9_-]{32,256}$/;

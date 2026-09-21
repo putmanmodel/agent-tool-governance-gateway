@@ -30,3 +30,9 @@ gateway_node/.env
 
 # Generated conformance runs; checked-in sample lives outside this directory
 conformance/output/
+
+# Evaluator local configuration, credentials, databases and sandbox files
+config/evaluation.local/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
