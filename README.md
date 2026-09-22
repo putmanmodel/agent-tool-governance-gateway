@@ -96,7 +96,7 @@ See [authentication setup and usage](kingpin/auth/README.md). The merged demo
 creates temporary credentials automatically. Kingpin authority semantics and
 frozen v1 payloads remain unchanged.
 
-Paper 9 proof/break evaluation is available separately via
+Proof/break evaluation against [Paper 9 — Reference Architecture & Interface Contracts](https://github.com/putmanmodel/spanda-architectural-framework/blob/main/papers/core/Paper09_Reference_Architecture_Interface_Contracts_0.2.pdf) is available separately via
 `npm --prefix gateway_node run conformance`. See the
 [conformance harness](conformance/README.md) for its registry, coverage limits and
 canonical JSONL artifact. Runtime operational logs retain their existing format.
@@ -117,3 +117,12 @@ never causes automatic retry; inconclusive inspection requires reviewer action.
 
 [Future directions](FUTURE_DIRECTIONS.md) describes possible extensions beyond the
 controlled evaluator; these are not implemented features or delivery commitments.
+
+## Evaluation & contact
+
+Interested in evaluating CDE/Kingpin, discussing integration, or collaborating?
+
+Email: [cde.kingpin@pm.me](mailto:cde.kingpin@pm.me)
+
+- Reproducible bugs: GitHub Issues
+- Security vulnerabilities: use GitHub's private vulnerability reporting
