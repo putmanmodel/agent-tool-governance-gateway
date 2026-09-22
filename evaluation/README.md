@@ -173,8 +173,11 @@ bearer tokens. Failed audit reads return an error, not a fabricated empty histor
 
 ## Read a request trace
 
-Capture `X-Request-ID` from the original tool response, including a HUMAN REVIEW
-response. In another terminal, with the evaluator still running:
+The bundled `evaluation:client` prints `Request ID: <request-id>` immediately
+after `ALLOW: wrote sandbox file.` This is the write response’s real `X-Request-ID`.
+Copy that value into the command below (replace `<request-id>`), in another
+terminal with the evaluator still running. For your own requests, capture
+`X-Request-ID` from the original tool response, including a HUMAN REVIEW response:
 
 ```sh
 npm --prefix gateway_node run evaluation:trace -- ../config/evaluation.local/runtime.json <request-id>

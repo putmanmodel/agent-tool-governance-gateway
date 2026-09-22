@@ -35,6 +35,8 @@ if (process.argv.includes('--continuity')) {
 } else {
   const written = await call('/tool', request('fs.write', { path: 'example.txt', content: 'Controlled evaluation\n' }));
   assert.equal(written.body.allow, true); console.log('ALLOW: wrote sandbox file.');
+  assert.ok(written.request, 'Successful write response is missing required X-Request-ID');
+  console.log(`Request ID: ${written.request}`);
   const read = await call('/tool', request('fs.read', { path: 'example.txt' }));
   assert.equal(read.body.tool_result.content, 'Controlled evaluation\n');
   const deletion = request('fs.delete', { path: 'example.txt' });

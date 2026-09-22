@@ -30,9 +30,16 @@ try {
   const config = JSON.parse(fs.readFileSync(filename)); config.port = Number(process.env.EVALUATION_SMOKE_PORT || 18789);
   fs.writeFileSync(filename, JSON.stringify(config));
   await launch(true);
-  process.stdout.write(execFileSync(process.execPath, [script('client.mjs'), filename], { encoding: 'utf8' }));
+  const output = execFileSync(process.execPath, [script('client.mjs'), filename], { encoding: 'utf8' });
+  process.stdout.write(output);
   const saved = JSON.parse(fs.readFileSync(path.join(directory, 'config/client-checkpoint.json')));
-  const trace = execFileSync(process.execPath, [script('trace.mjs'), filename, saved.request], { encoding: 'utf8' });
+  const printedId = /^Request ID: (.+)$/m.exec(output)?.[1];
+  if (!printedId || printedId !== saved.request) throw Error('Client did not print the server request ID');
+  const auth = JSON.parse(fs.readFileSync(path.join(directory, 'config/auth.json')));
+  for (const secret of [...auth.principals.map(p => p.token), saved.lease]) {
+    if (output.includes(secret)) throw Error('Client printed a credential or lease token');
+  }
+  const trace = execFileSync(process.execPath, [script('trace.mjs'), filename, printedId], { encoding: 'utf8' });
   if (!trace.includes('Execution SUCCEEDED (adapter receipt)')) throw Error('Trace omitted execution receipt');
   process.stdout.write(trace);
   await stop(); await launch(false);
