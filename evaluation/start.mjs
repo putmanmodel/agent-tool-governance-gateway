@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { openEvaluation, buildIdentity } from './config.js';
+import { openEvaluation, loadEvaluation, buildIdentity } from './config.js';
 import { startCde } from './cde.js';
 import { createGatewayApp } from '../gateway_node/server.js';
 
@@ -14,22 +14,25 @@ function gitId() {
   } catch { return null; }
 }
 export async function startEvaluation(filename, options) {
-  const runtime = openEvaluation(filename, options);
-  let cde, server;
+  const loaded = loadEvaluation(filename);
+  let runtime, cde, server;
   try {
-    cde = await startCde(runtime.python);
+    cde = await startCde(loaded.python, loaded.database + '.runtime.lock');
+    runtime = openEvaluation(filename, options);
+    runtime.execution.recover();
     const identity = buildIdentity(runtime.policy, gitId());
     const app = createGatewayApp({ mode: 'evaluation', authentication: runtime.authentication,
       authority: runtime.authority, evaluateTurn: cde.evaluate, adapter: runtime.adapter,
-      build: identity, logDecision() {} });
+      execution: runtime.execution, build: identity, logDecision() {} });
     server = await new Promise((resolve, reject) => {
       const listener = app.listen(runtime.config.port, runtime.config.host, () => resolve(listener));
       listener.once('error', reject);
     });
+    cde.closed.then(() => server.close());
     return { ...runtime, server, identity, async close() {
-      await new Promise(resolve => server.close(resolve)); cde.close(); runtime.store.close();
+      await new Promise(resolve => server.close(resolve)); await cde.close(); runtime.store.close();
     } };
-  } catch (error) { server?.close(); cde?.close(); runtime.store.close(); throw error; }
+  } catch (error) { server?.close(); await cde?.close(); runtime?.store.close(); throw error; }
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   let runtime;

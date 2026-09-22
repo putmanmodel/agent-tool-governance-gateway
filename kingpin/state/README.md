@@ -77,7 +77,8 @@ decisions. Existing request, signal, lease and decision wire schemas are unchang
 
 `schema.sql` retains the original version-1 bootstrap. New stores apply it and
 `migrations/002_lease_revocation.sql`, then `migrations/003_governance_events.sql`
-and `migrations/004_human_review.sql` in one transaction to reach version **4**:
+then `migrations/004_human_review.sql` and `migrations/005_executions.sql`
+in one transaction to reach version **5**:
 
 - `store_metadata`: singleton policy fingerprint and current lease epoch.
 - `contexts`: canonical composite context key, level, clean count, revision.
@@ -117,8 +118,8 @@ or create distributed enforcement guarantees.
 
 ## Startup, integrity and compatibility
 
-Creation and migration are transactional. Existing files must have version 1, 2, 3 or
-4 and the exact corresponding expected schema. Version 2 migrates to version 3
+Creation and migration are transactional. Existing files must have version 1, 2, 3, 4 or
+5 and the exact corresponding expected schema. Version 2 migrates to version 3
 by adding the separate append-only governance event store; existing state is
 preserved. See [governance events](../audit/README.md). Valid version-1 files migrate to
 version 2 (then version 3) with epoch zero and nonce = SHA-256(existing token), preserving prior
@@ -163,7 +164,7 @@ unchanged 32-event baseline), **all merged HTTP demo assertions passed**,
 **standalone demo passed**, and **git diff --check passed**. The existing gateway,
 CDE, frozen decision fixtures and public schemas were not modified.
 
-Current schema: **4**. Required governance events commit atomically with state.
+Current schema: **5**. Required governance events commit atomically with state.
 `getEventsForRequest(requestId)` queries ordered detached records independently of
 authority evaluation. [Audit contract and failure semantics](../audit/README.md).
 
@@ -172,3 +173,11 @@ The [persistent review repository](../review/README.md) exposes
 unique request-decision/evaluation bindings and legal-transition guards without
 rebuilding prior state. Version 3 migrates to 4 after exact validation; review
 transitions and lifecycle events are atomic with current authority/lease checks.
+
+
+Migration `005_executions.sql` now advances version 4 to 5, preserving existing
+records and adding the [execution repository](../../execution/README.md).
+`tx.executions.get/list/insert/save` enforces immutable bindings, permanent history,
+unique decision/review executions and unresolved resource guards. Required receipt
+and audit writes are atomic; the external filesystem remains outside SQLite's
+rollback guarantees. Old allow events do not become fabricated execution receipts.

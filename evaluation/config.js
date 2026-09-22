@@ -1,3 +1,4 @@
+import { ExecutionRuntime } from '../execution/runtime.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { loadPolicy } from '../kingpin/policy/loader.js';
@@ -28,17 +29,20 @@ export function loadEvaluation(filename) {
     const relative = path.relative(sandboxRoot, physical);
     if (!relative || (!relative.startsWith('..' + path.sep) && relative !== '..' && !path.isAbsolute(relative))) throw Error('Control files must be outside the sandbox');
   }
-  return { config, policy, authentication, adapter, database: resolve('database'), python: resolve('python') };
+  const database = fs.existsSync(resolve('database')) ? fs.realpathSync(resolve('database'))
+    : path.join(fs.realpathSync(path.dirname(resolve('database'))), path.basename(resolve('database')));
+  if (fs.existsSync(database) && fs.statSync(database).nlink !== 1) throw Error('Database hard links are unsupported');
+  return { config, policy, authentication, adapter, database, python: resolve('python') };
 }
 export function openEvaluation(filename, { initialize = false } = {}) {
   const loaded = loadEvaluation(filename);
   const store = new SQLiteStateStore({ filename: loaded.database, create: initialize });
   try {
     const authority = new KingpinAuthority({ store, policy: loaded.policy });
-    return { ...loaded, store, authority };
+    return { ...loaded, store, authority, execution: new ExecutionRuntime({ store, adapter: loaded.adapter }) };
   } catch (error) { store.close(); throw error; }
 }
 export function buildIdentity(policy, buildId = null) {
   return Object.freeze({ product: 'Kingpin governed tool evaluator', version: '0.4.0-dev',
-    storage_schema_version: 4, policy_version: policy.policy_version, runtime_mode: 'evaluation', build_id: buildId });
+    storage_schema_version: 5, policy_version: policy.policy_version, runtime_mode: 'evaluation', build_id: buildId });
 }

@@ -155,3 +155,11 @@ Persistent [review lifecycle](../review/README.md) events now use the separate a
 v2 schema, with review/reviewer IDs. SQLite schema 4 adds review state; migration
 003 and historical v1 events remain unchanged. Review creation, resolution,
 invalidation and one-use consumption commit with their required events.
+
+
+The [execution layer](../../execution/README.md) now emits separate audit v3
+`tool.execution.*` events with durable start/result/reconciliation receipts.
+Existing enforcement-allowed events continue to mean permission, not completion.
+Execution events retain original request/evaluation/decision/review correlation;
+known adapter failure enforcement events no longer omit the available evaluation
+ID. SQLite schema 5 stores receipts independently of original authority review.

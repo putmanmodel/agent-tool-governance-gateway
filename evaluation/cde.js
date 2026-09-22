@@ -4,8 +4,9 @@ import { fileURLToPath } from 'node:url';
 
 // One private, stateful child for the lifetime of the evaluator. Never respawn
 // transparently: that would silently discard CDE's in-memory session history.
-export async function startCde(python) {
-  const child = spawn(python, ['-u', fileURLToPath(new URL('./cde_worker.py', import.meta.url))], { stdio: ['pipe','pipe','ignore'] });
+export async function startCde(python, lockFile = null) {
+  const child = spawn(python, ['-u', fileURLToPath(new URL('./cde_worker.py', import.meta.url)), ...(lockFile ? [lockFile] : [])], { stdio: ['pipe','pipe','ignore'] });
+  const exited = new Promise(resolve => { child.once('exit', resolve); child.once('error', resolve); });
   const lines = createInterface({ input: child.stdout });
   let waiting, stopped = false;
   const fail = () => { stopped = true; if (waiting) { clearTimeout(waiting.timer); waiting.reject(Error('CDE unavailable')); waiting = null; } };
@@ -23,9 +24,9 @@ export async function startCde(python) {
     });
   }
   if (!(await receive()).ready) { child.kill(); throw Error('CDE did not start'); }
-  return { async evaluate(packet) {
+  return { closed: exited, async evaluate(packet) {
     const response = receive();
     if (!stopped) child.stdin.write(JSON.stringify(packet) + '\n');
     return (await response).result;
-  }, close() { fail(); lines.close(); child.kill(); } };
+  }, close() { fail(); lines.close(); child.kill(); return exited; } };
 }

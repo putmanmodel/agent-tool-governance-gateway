@@ -10,6 +10,13 @@ from src.engine import CDEEngine
 from src.types.turn_packet import TurnPacket
 from src.response import build_response
 
+# One evaluator owner per database. The OS releases flock on child exit, even
+# after parent SIGKILL/pipe EOF. Never unlink the stable lock inode.
+if len(sys.argv) > 1:
+    import os
+    import fcntl
+    lock_fd = os.open(sys.argv[1], os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
 engines = {}
 print(json.dumps({"ready": True}), flush=True)
 for line in sys.stdin:

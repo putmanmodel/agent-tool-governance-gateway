@@ -160,3 +160,7 @@ an optional real filesystem adapter after gateway permission and consumption.
 The default demo still simulates enforcement. Review semantics and at-most-once
 limitations described above are unchanged; no success event claims atomicity
 between governance storage and external execution.
+
+The [execution ledger](../../execution/README.md) now separately tracks post-review
+side-effect starts, terminal receipts and uncertainty. Reconciliation never
+unconsumes or reinterprets the original pre-execution review.

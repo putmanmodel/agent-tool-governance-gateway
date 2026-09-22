@@ -1,3 +1,4 @@
+import { validateExecution, validateExecutionTransition } from '../../execution/model.js';
 import { validateReview, validateReviewTransition } from '../review/model.js';
 import { canonical } from '../audit/events.js';
 import { validateEvent } from '../audit/events.js';
@@ -10,6 +11,7 @@ const schema = readFileSync(new URL('./schema.sql', import.meta.url), 'utf8');
 const migration = readFileSync(new URL('./migrations/002_lease_revocation.sql', import.meta.url), 'utf8');
 const auditMigration = readFileSync(new URL('./migrations/003_governance_events.sql', import.meta.url), 'utf8');
 const reviewMigration = readFileSync(new URL('./migrations/004_human_review.sql', import.meta.url), 'utf8');
+const executionMigration = readFileSync(new URL('./migrations/005_executions.sql', import.meta.url), 'utf8');
 const nonceForToken = token => crypto.createHash('sha256').update(token).digest('hex');
 const schemaQuery = "SELECT type, name, tbl_name, sql FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%' ORDER BY name";
 const reference = new DatabaseSync(':memory:');
@@ -22,6 +24,8 @@ reference.exec(auditMigration);
 expectedSchemas[3] = JSON.stringify(reference.prepare(schemaQuery).all());
 reference.exec(reviewMigration);
 expectedSchemas[4] = JSON.stringify(reference.prepare(schemaQuery).all());
+reference.exec(executionMigration);
+expectedSchemas[5] = JSON.stringify(reference.prepare(schemaQuery).all());
 reference.close();
 
 export class SQLiteStateStore {
@@ -59,13 +63,17 @@ export class SQLiteStateStore {
           this.#verify(3);
           this.#db.exec(reviewMigration);
         }
+        if (this.#db.prepare('PRAGMA user_version').get().user_version === 4) {
+          this.#verify(4);
+          this.#db.exec(executionMigration);
+        }
         this.#verify();
         this.#db.exec('COMMIT');
       } catch (error) { this.#db.exec('ROLLBACK'); throw error; }
     } catch (error) { this.#db?.close(); this.#db = undefined; throw error; }
   }
 
-  #verify(version = 4) {
+  #verify(version = 5) {
     check(this.#db.prepare('PRAGMA user_version').get().user_version === version, 'unsupported SQLite schema version');
     check(JSON.stringify(this.#db.prepare(schemaQuery).all()) === expectedSchemas[version], 'incompatible SQLite schema');
     check(this.#db.prepare('PRAGMA quick_check').all().every(row => row.quick_check === 'ok'), 'SQLite integrity check failed');
@@ -101,6 +109,13 @@ export class SQLiteStateStore {
         check(row.review_id === review.review_id && row.status === review.status
           && row.context_key === canonical(review.context) && row.evaluation_id === review.evaluation_id
           && row.decision_id === review.decision_id && review.policy_fingerprint === fingerprint, 'invalid persisted review');
+      }
+    }
+    if (version >= 5) {
+      for (const row of this.#db.prepare('SELECT * FROM executions').all()) {
+        const r = validateExecution(JSON.parse(row.record));
+        check(r.execution_id === row.execution_id && r.decision_id === row.decision_id && r.review_id === row.review_id
+          && r.resource_hash === row.resource_hash && r.status === row.status, 'invalid persisted execution');
       }
     }
     if (this.#toolIds) {
@@ -147,6 +162,23 @@ export class SQLiteStateStore {
       const guard = fn => (...args) => { check(open, 'transaction ended'); return fn(...args); };
       const run = (sql, ...args) => this.#db.prepare(sql).run(...args);
       const tx = {
+        executions: {
+          get: guard(id => {
+            const row = this.#db.prepare('SELECT record FROM executions WHERE execution_id=?').get(id);
+            return row ? validateExecution(JSON.parse(row.record)) : undefined;
+          }),
+          list: guard(() => this.#db.prepare('SELECT record FROM executions ORDER BY rowid').all().map(row => validateExecution(JSON.parse(row.record)))),
+          insert: guard(r => {
+            validateExecution(r); check(r.status === 'started', 'execution must start started');
+            if (r.review_id) check(tx.reviews.get(r.review_id)?.status === 'consumed', 'review not consumed');
+            run('INSERT INTO executions VALUES (?, ?, ?, ?, ?, ?)', r.execution_id, r.decision_id, r.review_id, r.resource_hash, r.status, JSON.stringify(r));
+          }),
+          save: guard(r => {
+            const previous = tx.executions.get(r.execution_id); check(previous, 'missing execution');
+            validateExecutionTransition(previous, r);
+            check(run('UPDATE executions SET status=?, record=? WHERE execution_id=? AND status=?', r.status, JSON.stringify(r), r.execution_id, previous.status).changes === 1, 'execution race');
+          }),
+        },
         reviews: {
           get: guard(id => {
             const row = this.#db.prepare('SELECT record FROM reviews WHERE review_id = ?').get(id);
@@ -166,7 +198,7 @@ export class SQLiteStateStore {
               record.status, JSON.stringify(record), record.review_id, previous.status).changes === 1, 'review race');
           }),
         },
-        audit: { append: guard(record => {
+        audit: { forRequest: guard(id => this.#db.prepare('SELECT record FROM governance_events WHERE request_id=? ORDER BY sequence').all(id).map(row => validateEvent(JSON.parse(row.record)))), append: guard(record => {
           validateEvent(record);
           const inserted = run('INSERT INTO governance_events(event_id, request_id, record) VALUES (?, ?, ?)',
             record.event_id, record.request_id, JSON.stringify(record));

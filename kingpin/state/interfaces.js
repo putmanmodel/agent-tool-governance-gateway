@@ -8,6 +8,8 @@
  * work receives:
  * audit.append(event): validate and append an immutable event in the same transaction.
  * Stored/query records add a monotonically increasing sequence; no update/delete API.
+ * executions.get/list/insert/save: immutable authorized binding, unique decision/review/resource and guarded receipt transitions
+ * audit.forRequest(requestId): transaction-local correlated event facts for execution binding checks
  * reviews.get(reviewId) / list() -> detached review records
  * reviews.insert(pendingReview); reviews.save(nextReview) -> validated immutable binding/history and legal transition
  * contexts.get(key) -> {level, clean, revision} | undefined

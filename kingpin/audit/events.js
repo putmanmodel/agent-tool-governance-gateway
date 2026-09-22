@@ -36,7 +36,29 @@ export function reviewEvent(type, context, fields, clock) {
   const base = event('review.requested', context, baseFields, clock);
   return validateEvent({ ...base, schema_version: '2.0', event_type: type, review_id, reviewer_principal_id });
 }
+export const EXECUTION_EVENT_TYPES = Object.freeze(['started','succeeded','failed','unknown','reconciled_succeeded','reconciled_failed','reconciliation_required'].map(s => `tool.execution.${s}`));
+export function executionEvent(record, clock) {
+  const base = event('tool.enforcement.allowed', { request_id: record.request_id, principal_id: record.principal_id, decision_id: record.decision_id }, {
+    evaluation_id: record.evaluation_id, agent_id: record.agent_id, context: record.context, tool_id: record.tool_id,
+    arguments_hash: record.arguments_hash, outcome: record.status, reason_codes: record.failure_code ? [record.failure_code] : [],
+  }, clock);
+  return validateEvent({ ...base, schema_version: '3.0', event_type: `tool.execution.${record.status}`,
+    execution_id: record.execution_id, review_id: record.review_id, request_hash: record.request_hash,
+    result_metadata: record.result_metadata, reconciliation: record.reconciliation });
+}
 export function validateEvent(record) {
+  if (record?.schema_version === '3.0') {
+    const { execution_id, review_id, request_hash, result_metadata, reconciliation, ...base } = record;
+    if (!EXECUTION_EVENT_TYPES.includes(record.event_type) || !/^[a-f0-9-]{36}$/.test(execution_id)
+        || !(review_id === null || /^[a-f0-9-]{36}$/.test(review_id)) || !/^[a-f0-9]{64}$/.test(request_hash)
+        || !(result_metadata === null || canonical(result_metadata) === '{"adapter_reported":true}')
+        || !(reconciliation === null || (Object.keys(reconciliation).sort().join() === 'at,method,outcome,principal_id'
+          && ['adapter','operator'].includes(reconciliation.method) && ['succeeded','failed','inconclusive','unsupported'].includes(reconciliation.outcome)
+          && typeof reconciliation.at === 'string' && Number.isFinite(Date.parse(reconciliation.at))
+          && (reconciliation.principal_id === null || typeof reconciliation.principal_id === 'string')))) throw Error('Invalid execution audit event');
+    validateEvent({ ...base, schema_version: '1.0', event_type: 'tool.enforcement.allowed' });
+    return record;
+  }
   if (record?.schema_version === '2.0') {
     const { review_id, reviewer_principal_id, ...base } = record;
     if (!REVIEW_EVENT_TYPES.includes(record.event_type) || typeof review_id !== 'string'

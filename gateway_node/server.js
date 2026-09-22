@@ -38,10 +38,11 @@ export function createGatewayApp({
   logDecision = appendDecisionLog,
   mode = "demo",
   adapter = null,
+  execution = null,
   build = null,
 } = {}) {
   if (!['demo','evaluation'].includes(mode)) throw Error('Unsupported runtime mode');
-  if (mode === 'evaluation' && (!adapter || !build || process.env.CDE_DEMO_FIXTURES === '1')) throw Error('Evaluation requires configured adapter/build and forbids demo fixtures');
+  if (mode === 'evaluation' && (!adapter || !execution || !build || process.env.CDE_DEMO_FIXTURES === '1')) throw Error('Evaluation requires configured adapter/execution/build and forbids demo fixtures');
   const app = express();
   const authenticatedRequests = new WeakMap();
   function auditContext(req, res) {
@@ -257,9 +258,17 @@ export function createGatewayApp({
       return;
     }
     if (response.allow && adapter) {
-      try { response.tool_result = adapter.execute(body); }
-      catch {
-        try { authority.recordEnforcement(body, req.auditContext, { outcome: 'failed', reason_codes: ['ADAPTER_FAILURE'] }); } catch {}
+      try {
+        const receipt = execution.run(execution.capture(body, response.authority_decision, req.auditContext), body);
+        if (receipt.error) {
+          try { authority.recordEnforcement(body, req.auditContext, { outcome: 'failed', evaluation_id: response.authority_decision.evaluation_id, reason_codes: ['ADAPTER_FAILURE'] }); } catch {}
+          res.status(receipt.execution_status === 'failed' ? 422 : 503).json(receipt); return;
+        }
+        Object.assign(response, receipt);
+      }
+      catch (error) {
+        if (error.code === 'EXECUTION_CONFLICT') { res.status(409).json({ error: 'Execution already recorded or reconciliation required', execution_id: error.execution_id }); return; }
+        try { authority.recordEnforcement(body, req.auditContext, { outcome: 'failed', evaluation_id: response.authority_decision.evaluation_id, reason_codes: ['ADAPTER_FAILURE'] }); } catch {}
         res.status(422).json({ error: 'Sandbox operation failed', execution_authorized: true }); return;
       }
     }
@@ -273,6 +282,18 @@ export function createGatewayApp({
       try { authenticateRequest(req); res.json(build); }
       catch { res.status(401).json({ error: 'Authentication required' }); }
     });
+    app.get('/executions', protectedRoute('execution.read', (req, res) => {
+      try { res.json({ executions: execution.list(req.authPrincipal) }); } catch { res.status(403).json({ error: 'Execution unavailable' }); }
+    }));
+    app.get('/executions/:execution_id', protectedRoute('execution.read', (req, res) => {
+      try { res.json(execution.get(req.params.execution_id, req.authPrincipal)); } catch { res.status(403).json({ error: 'Execution unavailable' }); }
+    }));
+    app.post('/executions/:execution_id/reconcile', protectedRoute('execution.reconcile', (req, res) => {
+      try { res.json(execution.reconcile(req.params.execution_id, req.authPrincipal)); } catch { res.status(409).json({ error: 'Reconciliation unavailable' }); }
+    }));
+    app.post('/executions/:execution_id/resolve', protectedRoute('execution.resolve', (req, res) => {
+      try { res.json(execution.resolve(req.params.execution_id, req.body?.outcome, req.authPrincipal, req.auditContext)); } catch { res.status(409).json({ error: 'Disposition unavailable' }); }
+    }));
     app.get('/audit/:request_id', protectedRoute('audit.read', (req, res) => {
       try { res.json({ events: authority.getEventsForRequest(req.params.request_id) }); }
       catch { res.status(503).json({ error: 'Audit unavailable' }); }
@@ -319,7 +340,13 @@ export function createGatewayApp({
       authority.recordEnforcement(req.body, { ...result.correlation, principal_id: req.authPrincipal.principal_id,
         redact: value => authentication.redact(value) }, { outcome: result.authority_decision.outcome,
         evaluation_id: result.authority_decision.evaluation_id, reason_codes: result.authority_decision.reason_codes });
-      const toolResult = adapter ? { tool_result: adapter.execute(req.body) } : {};
+      const toolResult = adapter ? execution.run(execution.capture(req.body, result.authority_decision,
+        { ...result.correlation, principal_id: req.authPrincipal.principal_id, redact: value => authentication.redact(value) }, result.review_id), req.body) : {};
+      if (toolResult.error) {
+        try { authority.recordEnforcement(req.body, { ...result.correlation, principal_id: req.authPrincipal.principal_id },
+          { outcome: 'failed', evaluation_id: result.authority_decision.evaluation_id, reason_codes: ['ADAPTER_FAILURE'] }); } catch {}
+        res.status(toolResult.execution_status === 'failed' ? 422 : 503).json(toolResult); return;
+      }
       res.status(enforcement.status).json({ ...enforcement.response, ...toolResult, review_id: result.review_id,
         execution_authorized: true, authorization_consumed: true });
     } catch { res.status(409).json({ error: 'Review execution refused' }); }

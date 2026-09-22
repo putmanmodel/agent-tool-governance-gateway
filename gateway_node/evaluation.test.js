@@ -1,3 +1,4 @@
+import { ExecutionRuntime } from '../execution/runtime.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -27,7 +28,7 @@ function fixture(t) {
 const body = (tool, args) => ({ ...request, tool, args, plan_id: 'evaluate', user_request: 'Please perform this bounded operation.', dry_run: true, diff: 'Exact preview' });
 function appFor(runtime, evaluateTurn) {
   return createGatewayApp({ mode: 'evaluation', authority: runtime.authority, authentication: runtime.authentication,
-    adapter: runtime.adapter, build: buildIdentity(runtime.policy), evaluateTurn, logDecision() {} });
+    adapter: runtime.adapter, execution: runtime.execution, build: buildIdentity(runtime.policy), evaluateTurn, logDecision() {} });
 }
 function synthetic() { let id = 0; return async () => ({ governance_signal: signal(0), top_event: { event_id: `eval-${++id}` } }); }
 
@@ -42,7 +43,7 @@ test('evaluation config validates, explicit create/reopen persists governance an
   assert.equal(next.authority.revokeAllLeases().lease_epoch, 2);
   assert.throws(() => openEvaluation(f.file, { initialize: true }), /exist/i);
   const status = await dispatch(appFor(next, synthetic()), '/status', {}, headers());
-  assert.equal(status.body.storage_schema_version, 4); assert.equal(status.body.runtime_mode, 'evaluation');
+  assert.equal(status.body.storage_schema_version, 5); assert.equal(status.body.runtime_mode, 'evaluation');
   const serialized = JSON.stringify(status.body);
   for (const secret of [...Object.values(tokens), f.root]) assert.ok(!serialized.includes(secret));
   assert.equal((await dispatch(appFor(next, synthetic()), '/status', {}, {})).statusCode, 401);
@@ -148,7 +149,7 @@ test('gateway adapter receives only permitted actions and cannot replace trusted
   let count = 0;
   const adapter = { execute(req) { count++; return runtime.adapter.execute(req); } };
   const app = createGatewayApp({ mode: 'evaluation', authentication, authority: runtime.authority,
-    adapter, build: buildIdentity(runtime.policy), evaluateTurn: synthetic(), logDecision() {} });
+    adapter, execution: new ExecutionRuntime({ store: runtime.store, adapter }), build: buildIdentity(runtime.policy), evaluateTurn: synthetic(), logDecision() {} });
   const denied = await dispatch(app, '/tool', { ...body('fs.delete', { path: 'x' }), tool_class: 'read_only', minimum_authority_floor: 0 });
   assert.equal(denied.body.allow, false); assert.equal(count, 0);
   assert.equal((await dispatch(app, '/tool', body('fs.write', { path: '../escape', content: 'no' }))).statusCode, 422);

@@ -176,3 +176,10 @@ code, frozen authority fixture or public v1 schema was changed by this step.
 The controlled evaluator adds read-only `audit.read` to authority_admin for
 `GET /audit/:request_id`. Agents/reviewers do not inherit it. Evaluation-only
 `GET /status` requires a valid credential but exposes build metadata only.
+
+
+Execution inspection uses `execution.read`, and read-only reconciliation uses
+`execution.reconcile`, for admins and scoped reviewers. Only reviewers receive
+`execution.resolve` for an explicit uncertain-outcome disposition. Agents cannot
+mark executions successful, and admins do not inherit reviewer disposition.
+These permissions do not confer additional tool authority.

@@ -64,7 +64,7 @@ npm --prefix gateway_node run evaluation -- ../config/evaluation.local/runtime.j
 ```
 
 Missing databases are not silently recreated. Existing compatible schemas migrate
-transactionally through schema 4; corruption, incompatible policy or schema,
+transactionally through schema 5; corruption, incompatible policy or schema,
 missing auth, placeholders and malformed configuration stop startup. A failure
 after successful database creation may leave a valid database; inspect the setup
 and retry without `--initialize`, never delete governance history as a workaround.
@@ -220,3 +220,45 @@ around a failure; restore trusted state or use a separate fresh evaluation.
 
 Further reading: [security boundaries](SECURITY.md), [evaluation notice](NOTICE.md),
 [architecture](../kingpin/README.md), [Paper 9 conformance](../conformance/README.md).
+
+
+## Execution receipts and uncertain outcomes
+
+Kingpin authorizes actions. The execution layer separately records whether an
+authorized action started and whether its result is known. Writes/deletes now
+return `execution_id` and `execution_status`; successful responses follow a durable
+success receipt. Reads retain their simple result without uncertain side-effect
+state. `tool.enforcement.allowed` means permission, while
+`tool.execution.succeeded` means adapter-reported completion was recorded.
+
+On restart, dangling starts become unknown and receive read-only adapter
+reconciliation. **Never retry an unknown action automatically.** Inspect
+`GET /executions` and `GET /executions/:id` as admin/reviewer. Request a fresh
+inspection with `POST /executions/:id/reconcile`. If it remains
+`reconciliation_required`, a scoped reviewer may record an explicit historical
+outcome via `POST /executions/:id/resolve` with `{"outcome":"succeeded"}` or
+`{"outcome":"failed"}`. Neither operation executes a tool. Only a fresh governed
+request after disposition/reconciliation may retry; consumed reviews stay consumed.
+
+Startup holds an exclusive OS lock on `<database>.runtime.lock`; do not delete
+that file while running. A second evaluator using that database is refused.
+Migration 4 → 5 adds execution records without rewriting prior governance state.
+See the [execution contract](../execution/README.md) for postcondition assumptions,
+permissions, crash windows and the explicit absence of exactly-once guarantees.
+
+The example reviewer is scoped to the `review` session. To let that reviewer
+resolve uncertain operations from the main `evaluation` session too, explicitly
+add the following tuple to its `allowed_contexts` in your private auth file and
+restart to reload credentials/scopes (do not reinitialize the database):
+
+```json
+{"session_id":"evaluation","channel_id":"tools","scene_id":"sandbox","task_id":null}
+```
+
+Existing deployments do not silently gain wider reviewer scopes. Admins can
+inspect/reconcile all execution records but still cannot supply human disposition.
+The deterministic real-HTTP crash test can be run separately with:
+
+```sh
+CDE_PYTHON="$PWD/.venv/bin/python" node tests/fixtures/execution_http_smoke.mjs
+```

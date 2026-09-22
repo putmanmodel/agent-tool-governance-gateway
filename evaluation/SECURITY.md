@@ -57,8 +57,8 @@ production security boundary against that operator.
 - Audit describes governance and gateway permission; an `allowed` enforcement
   event is not proof that the adapter completed. The synchronous response's
   `tool_result` reports completion in that running process. An adapter failure
-  can occur after an authorization event. No new success-event semantics were
-  invented in this packaging step.
+  can occur after an authorization event. Execution receipt events now separately report committed completion or
+  uncertainty; see the execution tracking addition below.
 - CDE is internal/trusted and must not be exposed directly. Evaluation uses
   private stdio instead of the demo's unauthenticated loopback CDE service.
   CDE session history remains in memory and resets on process restart; Kingpin
@@ -73,3 +73,23 @@ production security boundary against that operator.
 Keep generated configuration/checkpoints private. The example client intentionally
 holds all roles for a local operator walkthrough; an actual agent must not receive
 the auth file, reviewer/admin credentials, runtime object or database handle.
+
+
+## Execution tracking addition
+
+Persistent starts/receipts now distinguish authorization from execution outcome.
+Execution lifecycle events are separate from existing enforcement events. Start
+intent must commit before adapter invocation, and terminal state/events commit
+together. Failure to commit a terminal receipt leaves an unknown outcome for
+recovery. Adapter inspection never retries writes/deletes. Inconclusive outcomes
+require a scoped reviewer disposition in the distinct execution queue; agents
+cannot self-resolve them. An unresolved target blocks another side effect until
+reconciliation/disposition, then a retry requires fresh governance.
+
+The evaluator's private child holds an exclusive OS lock for its database, and
+execution/recovery serialize through the store's writer lock. This is single-node
+coordination, not distributed fencing or two-phase commit. The filesystem effect
+cannot be rolled back if the receipt transaction fails. Postconditions depend on
+exclusive sandbox ownership and are not cryptographic proof of causal history.
+All no-TLS, bearer theft, unsigned lease, hostile host/database and rollback
+limitations above still apply. See [execution details](../execution/README.md).

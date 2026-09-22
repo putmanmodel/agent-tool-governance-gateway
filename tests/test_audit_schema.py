@@ -54,6 +54,26 @@ class AuditSchemaTests(unittest.TestCase):
             bad = dict(event, bearer_token='secret')
             self.assertFalse(self.review_validator.is_valid(bad))
 
+    def test_execution_receipts_have_versioned_schema_and_all_real_transitions(self):
+        schema = json.loads((ROOT / 'schemas/audit/v3/GovernanceExecutionEvent.schema.json').read_text())
+        Draft202012Validator.check_schema(schema)
+        validator = Draft202012Validator(schema, format_checker=FormatChecker())
+        events = json.loads(subprocess.check_output(
+            ['node', str(ROOT / 'tests/fixtures/execution_audit_stream.mjs')], text=True))
+        execution_events = [e for e in events if e['schema_version'] == '3.0']
+        self.assertEqual({e['event_type'] for e in execution_events}, {
+            'tool.execution.' + status for status in ['started', 'succeeded', 'failed', 'unknown',
+                'reconciled_succeeded', 'reconciled_failed', 'reconciliation_required']})
+        for event in execution_events:
+            validator.validate(event)
+            self.assertFalse(self.validator.is_valid(event))
+            for key in schema['required']:
+                bad = copy.deepcopy(event); del bad[key]
+                self.assertFalse(validator.is_valid(bad), key)
+            self.assertFalse(validator.is_valid(dict(event, raw_output='secret')))
+            self.assertIsNotNone(event['evaluation_id'])
+            self.assertIsNotNone(event['decision_id'])
+
     def test_existing_jsonl_writer_and_legacy_cde_records_coexist_with_product_events(self):
         frozen = json.loads((ROOT / 'tests/legacy_events.json').read_text())
         self.assertEqual(len(frozen), 32)

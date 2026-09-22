@@ -109,3 +109,8 @@ For an outside developer, begin with the [controlled evaluator quickstart](evalu
 It provides explicit configuration, persistent SQLite startup, local credentials,
 a real sandbox adapter, a readable client and restart verification. See the
 [evaluation notice](evaluation/NOTICE.md) and [security boundaries](evaluation/SECURITY.md).
+
+
+[Execution receipts and restart reconciliation](execution/README.md) now track
+side-effect outcomes separately from Kingpin authorization. Unknown completion
+never causes automatic retry; inconclusive inspection requires reviewer action.

@@ -1,3 +1,4 @@
+import { validateExecution, validateExecutionTransition, UNRESOLVED } from '../../execution/model.js';
 import { validateReview, validateReviewTransition } from '../review/model.js';
 import { canonical } from '../audit/events.js';
 import { validateEvent } from '../audit/events.js';
@@ -5,6 +6,7 @@ import { check, validContext, validLease, validEpoch } from './interfaces.js';
 
 export class MemoryStateStore {
   #events = [];
+  #executions = new Map();
   #reviews = new Map();
   #contexts = new Map();
   #evaluations = new Map();
@@ -25,6 +27,7 @@ export class MemoryStateStore {
     check(!this.#closed && !this.#active && this.#policy !== undefined, 'store unavailable or unbound');
     const events = structuredClone(this.#events);
     const reviews = structuredClone(this.#reviews);
+    const executions = structuredClone(this.#executions);
     const contexts = structuredClone(this.#contexts), evaluations = structuredClone(this.#evaluations);
     const revocations = structuredClone(this.#revocations), leases = structuredClone(this.#leases);
     let leaseEpoch = this.#leaseEpoch;
@@ -34,6 +37,23 @@ export class MemoryStateStore {
     const guard = fn => (...args) => { check(open, 'transaction ended'); return fn(...args); };
     const exists = key => check(contexts.has(key), 'missing context');
     const tx = {
+      executions: {
+        get: guard(id => structuredClone(executions.get(id))),
+        list: guard(() => structuredClone([...executions.values()])),
+        insert: guard(record => {
+          validateExecution(record);
+          check(record.status === 'started' && !executions.has(record.execution_id), 'duplicate execution');
+          check(![...executions.values()].some(r => r.decision_id === record.decision_id || (record.review_id && r.review_id === record.review_id)
+            || (r.resource_hash === record.resource_hash && UNRESOLVED.includes(r.status))), 'execution already started or resource unresolved');
+          if (record.review_id) check(reviews.get(record.review_id)?.status === 'consumed', 'review not consumed');
+          executions.set(record.execution_id, structuredClone(record));
+        }),
+        save: guard(record => {
+          check(executions.has(record.execution_id), 'missing execution');
+          validateExecutionTransition(executions.get(record.execution_id), record);
+          executions.set(record.execution_id, structuredClone(record));
+        }),
+      },
       reviews: {
         get: guard(id => structuredClone(reviews.get(id))),
         list: guard(() => structuredClone([...reviews.values()])),
@@ -51,7 +71,7 @@ export class MemoryStateStore {
           reviews.set(record.review_id, structuredClone(record));
         }),
       },
-      audit: { append: guard(record => {
+      audit: { forRequest: guard(id => structuredClone(events.filter(e => e.request_id === id))), append: guard(record => {
         validateEvent(record);
         check(!events.some(e => e.event_id === record.event_id), 'duplicate audit event');
         events.push({ ...structuredClone(record), sequence: events.length + 1 });
@@ -112,6 +132,7 @@ export class MemoryStateStore {
       check(!result || typeof result.then !== 'function', 'async transaction not supported');
       this.#events = events;
       this.#reviews = reviews;
+      this.#executions = executions;
       this.#contexts = contexts; this.#evaluations = evaluations;
       this.#revocations = revocations; this.#leases = leases;
       this.#leaseEpoch = leaseEpoch; this.#nonceRevocations = nonceRevocations;

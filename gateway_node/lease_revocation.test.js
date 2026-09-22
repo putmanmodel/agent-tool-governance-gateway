@@ -203,7 +203,7 @@ test('SQLite v1 migration is deterministic, preserves all prior state, and gives
   const filename = temporary(t), { tokens, before } = v1Database(filename);
   const store = sqlite(t, filename), a = runtime(store);
   const db = new DatabaseSync(filename);
-  assert.equal(db.prepare('PRAGMA user_version').get().user_version, 4);
+  assert.equal(db.prepare('PRAGMA user_version').get().user_version, 5);
   assert.equal(db.prepare('SELECT lease_epoch FROM store_metadata').get().lease_epoch, 0);
   assert.deepEqual(db.prepare('SELECT * FROM leases ORDER BY token').all().map(row => ({ ...row })),
     before.map(row => ({ ...row, nonce: hash(row.token), issuance_epoch: 0 })));
