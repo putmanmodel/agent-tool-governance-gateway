@@ -57,14 +57,17 @@ python -m unittest discover -s tests -v
 npm --prefix gateway_node test
 ```
 
-Gateway audit records append to `logs/gateway_decisions.jsonl` and include both
+In demo mode, operational gateway records append to `logs/gateway_decisions.jsonl` and include both
 `governance_signal` and `authority_decision`, plus original evidence/provenance and
-compatibility fields. The gateway requires the warm service and has no stateless
-fallback. CDE's 32-event regression baseline remains unchanged.
+compatibility fields. The demo gateway requires the warm service and has no
+stateless fallback. Evaluation uses private CDE stdio and SQLite product audit;
+operational payload logging is disabled. CDE's 32-event regression baseline remains unchanged.
 
 Governed HTTP requests now return an `X-Request-ID` header for the separate
 [governance event stream](../kingpin/audit/README.md). Query it through the trusted
-Kingpin runtime API; no public audit endpoint or tool-execution claim is added.
+Kingpin runtime API or evaluator admin-only `GET /audit/:request_id`. Enforcement
+events describe permission; separate execution receipt events describe outcomes.
+See the [read-only trace command](../evaluation/README.md#read-a-request-trace).
 
 See [persistent HUMAN REVIEW](../kingpin/review/README.md) for the narrow
 `/reviews` list/inspect/approve/deny routes and original-agent `/execute` path.

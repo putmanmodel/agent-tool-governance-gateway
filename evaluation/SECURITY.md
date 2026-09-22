@@ -18,8 +18,8 @@ production security boundary against that operator.
   distinct and recovery does not undo revocation.
 - Application audit is append-only through supported APIs and commits atomically
   with required governance changes. Adapter execution follows a committed
-  enforcement authorization event; it does not create a new claim of external
-  side-effect completion.
+  enforcement authorization event. That permission event does not claim
+  side-effect completion; separate execution events record receipts/uncertainty.
 - Missing/incompatible/corrupt required state fails closed. Initialization is
   explicit; no reset/clear/recovery override is exposed over HTTP.
 - Evaluation startup rejects demo fixtures. `/tool` rejects demo/control fields;
@@ -93,3 +93,26 @@ cannot be rolled back if the receipt transaction fails. Postconditions depend on
 exclusive sandbox ownership and are not cryptographic proof of causal history.
 All no-TLS, bearer theft, unsigned lease, hostile host/database and rollback
 limitations above still apply. See [execution details](../execution/README.md).
+
+## Scope of the trust claim
+
+The evaluator governs agent authority under its documented host/runtime trust
+assumptions. It cannot prove a compromised host trustworthy. There is no remote
+attestation, measured boot, cryptographic verification of evaluator binaries or
+configuration, signed artifact enforcement, or rollback-proof/tamper-evident
+history. Leases are opaque stored capabilities, not cryptographically signed
+claims. No TLS termination, distributed/multi-node consensus or exactly-once
+external side effects is claimed. These are future hardening directions, not
+features of this build. Structural validation is not proof of untampered history.
+
+Authority enforcement is source-agnostic: influenced requests still face trusted
+policy, floors, envelope, evidence, lease and review binding. CDE reports signals;
+Kingpin decides; the gateway enforces. Forwarding/attention (including any future
+Reflex integration) conveys observations and never grants authority. This evaluator
+does not model retrieved-document provenance, memory poisoning or multi-hop
+influence and does not claim complete direct/indirect prompt-injection detection.
+Those upstream detection/provenance questions require separate extensions and
+experiments; see the [adversarial playbook](ADVERSARIAL_TESTING.md).
+
+See [future directions](../FUTURE_DIRECTIONS.md) for possible trust-boundary
+extensions; they do not change the current guarantees or nonclaims above.

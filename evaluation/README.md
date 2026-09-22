@@ -3,6 +3,11 @@
 This v0.4 development build is for controlled, single-node evaluation. It is not
 represented as production-ready. Start here; no research-paper reading is needed.
 
+| Mode | Effects and state |
+| --- | --- |
+| Demo (`npm --prefix gateway_node run demo`) | Simulated tools, in-memory governance, frozen compatibility walkthrough |
+| Evaluation (`evaluation` below) | Real bounded filesystem effects, private authenticated runtime, persistent SQLite governance/audit/execution |
+
 Use macOS or Linux with **Node 24** (built-in `node:sqlite` and global fetch),
 Python **3.10+**, npm and a trusted local account. Validation used Node 24.14.1 and
 Python 3.14.6. SQLite's Node experimental warning is expected. Windows is not
@@ -10,7 +15,13 @@ supported by this POSIX sandbox adapter.
 
 ## Install and configure
 
-From the cloned repository root:
+Install Node **24** using the [official Node download page](https://nodejs.org/en/download):
+select version 24 and your operating system/architecture, then use its installer
+or installation instructions. Open a new terminal and verify `node --version`
+reports `v24.x` and `npm --version` works. Install Python 3.10+ with `venv` support
+and Git if absent; verify `python3 --version`.
+
+From the cloned repository root (on branch `v0.4-product`):
 
 ```sh
 python3 -m venv .venv
@@ -37,6 +48,17 @@ Edit `config/evaluation.local/runtime.json` if necessary:
 | `sandbox` | Existing private directory owned by the evaluator, mode 0700 |
 | `host` / `port` | Loopback `127.0.0.1` or `::1`, port 1024–65535; default 8788 |
 | `python` | Python executable path, relative to runtime.json or absolute |
+
+Default generated locations (relative to the repository root):
+
+| Location | Contents |
+| --- | --- |
+| `config/evaluation.local/runtime.json` | Local runtime settings |
+| `config/evaluation.local/auth.json` | Private bearer credentials for three roles |
+| `config/evaluation.local/policy.json` | Trusted tool configuration |
+| `config/evaluation.local/sandbox/` | Actual bounded tool files |
+| `config/evaluation.local/governance.sqlite` | Durable governance, audit and execution state |
+| `config/evaluation.local/client-checkpoint.json` | Private walkthrough checkpoint, including a lease token |
 
 Audit events live in the same SQLite database; no extra audit destination or
 operational payload logger is enabled in evaluation mode. Control/configuration
@@ -149,6 +171,33 @@ Capture `X-Request-ID` from `/tool`; review lifecycle events retain that origina
 ID through resolution and consumption. Audit queries never return raw lease or
 bearer tokens. Failed audit reads return an error, not a fabricated empty history.
 
+## Read a request trace
+
+Capture `X-Request-ID` from the original tool response, including a HUMAN REVIEW
+response. In another terminal, with the evaluator still running:
+
+```sh
+npm --prefix gateway_node run evaluation:trace -- ../config/evaluation.local/runtime.json <request-id>
+```
+
+This local operator utility uses the single `authority_admin` credential in the
+local auth file and only calls authenticated `GET /audit/:request_id`. It does not
+open the store, reconcile, retry, authorize or mutate state. Multiple admin entries
+are rejected as ambiguous. Unknown IDs print “No audit events found”; failed reads
+exit unsuccessfully instead of pretending the history is empty. No events can
+also mean a wrong ID or a failure before audit capture, not proof of success.
+
+The timeline retains available principal/context and evaluation/decision/review/
+execution IDs. Permission is distinguished from execution receipts; operator
+historical disposition is distinguished from adapter inspection. UNKNOWN does
+not prove a process crash, and the trace does not invent a revalidation step.
+It prints selected fields, escapes terminal controls and redacts configured bearer
+credentials; raw arguments, evidence, result payloads and free-text reasons are
+omitted. Treat remaining identity/context metadata as private. This is a projection
+of product audit, not a new audit format or Paper 9 canonical output.
+
+Continue with the [adversarial playbook](ADVERSARIAL_TESTING.md).
+
 ## Restart and verify continuity
 
 Stop the runtime with Ctrl-C, restart **without `--initialize`**, then run:
@@ -210,6 +259,22 @@ client, restarts the process, verifies continuity and removes its own temporary
 files. It uses loopback port 18789; `EVALUATION_SMOKE_PORT` can select another test
 port. The frozen demo uses demo mode, memory state and existing opt-in fixtures;
 it never uses your evaluator database. Never enable fixtures in evaluation mode.
+
+If `.venv/bin/python --version` fails because its interpreter symlink points to
+an installation that no longer exists, stop the evaluator and recreate **only**
+the repository-local virtual environment:
+
+```sh
+rm -rf .venv
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt -r requirements_gateway.txt -r requirements_test.txt
+```
+
+Run these commands from the repository root after checking that `.venv` is the
+local environment you intend to replace. Preserve `config/evaluation.local`, its
+credentials, sandbox and database. Keep runtime.json's `python` pointing to the
+new absolute `.venv/bin/python`; restart without `--initialize`. Do not rerun the
+configuration generator against your existing configuration directory.
 
 For startup failure check: the runtime.json field names, executable Python with
 installed dependencies, generated auth rather than placeholders, valid policy,

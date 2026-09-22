@@ -11,7 +11,8 @@
     "evaluation": "node ../evaluation/start.mjs",
     "evaluation:configure": "node ../evaluation/configure.mjs",
     "evaluation:client": "node ../evaluation/client.mjs",
-    "evaluation:smoke": "node ../evaluation/smoke.mjs"
+    "evaluation:smoke": "node ../evaluation/smoke.mjs",
+    "evaluation:trace": "node ../evaluation/trace.mjs"
   },
   "dependencies": {
     "express": "^4.22.3"

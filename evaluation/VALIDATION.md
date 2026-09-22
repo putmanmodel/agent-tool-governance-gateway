@@ -1,5 +1,9 @@
 # Evaluator packaging completion report
 
+Historical packaging-step report: schema/counts below describe that step. Later
+execution tracking uses schema 5; see the [current quickstart](README.md) and
+[readiness validation](READINESS_VALIDATION.md).
+
 Implemented on `v0.4-product`, runtime identity `0.4.0-dev`. No Kingpin authority,
 lease, review, recovery, CDE computation, policy or Paper 9 rule was changed.
 SQLite remains schema 4. No new schema migration is needed for packaging.

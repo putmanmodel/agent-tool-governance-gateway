@@ -81,7 +81,9 @@ identity fields. Hashes of low-entropy arguments are not secrecy guarantees.
 | `tool.enforcement.review` | Gateway held for HUMAN REVIEW |
 | `tool.enforcement.failed` | Invalid input, CDE/runtime/authority/state failure |
 
-The gateway simulates enforcement. No event claims successful tool execution.
+Demo tools are simulated. In evaluation mode, enforcement events describe
+permission only; separate schema-3 execution events record adapter receipts and
+uncertainty for real sandbox effects.
 Direct `validateLease()` remains a read-only diagnostic; decision-time failed
 validation produces `lease.rejected`. Repeated idempotent revocation calls each
 append evidence of the successful operation, without reviving or further changing
@@ -124,7 +126,8 @@ high-volume analytics service.
 
 ## Reconstructing a request
 
-Use the trusted in-process API; no public audit endpoint is added:
+Use evaluator admin-only `GET /audit/:request_id`, the [read-only trace](../../evaluation/README.md#read-a-request-trace),
+or the trusted in-process API:
 
 ```js
 const events = authority.getEventsForRequest(requestId);

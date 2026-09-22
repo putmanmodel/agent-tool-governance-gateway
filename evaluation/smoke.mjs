@@ -31,6 +31,10 @@ try {
   fs.writeFileSync(filename, JSON.stringify(config));
   await launch(true);
   process.stdout.write(execFileSync(process.execPath, [script('client.mjs'), filename], { encoding: 'utf8' }));
+  const saved = JSON.parse(fs.readFileSync(path.join(directory, 'config/client-checkpoint.json')));
+  const trace = execFileSync(process.execPath, [script('trace.mjs'), filename, saved.request], { encoding: 'utf8' });
+  if (!trace.includes('Execution SUCCEEDED (adapter receipt)')) throw Error('Trace omitted execution receipt');
+  process.stdout.write(trace);
   await stop(); await launch(false);
   process.stdout.write(execFileSync(process.execPath, [script('client.mjs'), filename, '--continuity'], { encoding: 'utf8' }));
 } finally { await stop(); fs.rmSync(directory, { recursive: true, force: true }); }

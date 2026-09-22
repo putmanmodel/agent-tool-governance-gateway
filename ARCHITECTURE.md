@@ -1,5 +1,12 @@
 # Standalone CDE runtime governance
 
+Scope: this document records the standalone/demo architecture and its historical
+refactoring rationale. Its simulated tools, in-memory Kingpin state and JSONL
+logging describe **demo mode**, not the current controlled evaluator. For v0.4
+persistent reviews, authenticated audit, real sandbox effects and UNKNOWN/restart
+reconciliation, use the [evaluator quickstart](evaluation/README.md),
+[current Kingpin boundary](kingpin/README.md) and [execution contract](execution/README.md).
+
 This repository is the canonical implementation for this demo. No CDE Lite or
 other CDE implementation is used. Kingpin is a local, separate authority-decision
 module implemented in this repository; it does not import an external Kingpin system.

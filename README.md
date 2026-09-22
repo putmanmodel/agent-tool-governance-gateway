@@ -18,7 +18,7 @@ leases stay revoked and must be issued afresh where required.
 | --- | --- |
 | **CDE** | Deterministic deviation evaluation, confidence, EMA/hysteresis, and Gate 0/1/2 assignment. Emits a versioned governance signal with evidence/lease requirements and audit provenance. |
 | **Kingpin** | Capability envelope, scoped leases, revocation, allow/constrain/deny/quarantine/human review, and deterministic restoration. Consumes CDE's signal and returns an authority decision. |
-| **Gateway** | Enforcement only: applies Kingpin's decision to the simulated tool request. Handles HTTP orchestration and audit logging, without substantive authority policy. |
+| **Gateway** | Enforcement only: applies Kingpin's decision; demo tools are simulated, evaluator tools use the bounded filesystem adapter. Handles HTTP orchestration and audit logging, without substantive authority policy. |
 
 - **Gate 0 — PASS**
 - **Gate 1 — EVIDENCE REQUIRED** (dry-run + diff)
@@ -114,3 +114,6 @@ a real sandbox adapter, a readable client and restart verification. See the
 [Execution receipts and restart reconciliation](execution/README.md) now track
 side-effect outcomes separately from Kingpin authorization. Unknown completion
 never causes automatic retry; inconclusive inspection requires reviewer action.
+
+[Future directions](FUTURE_DIRECTIONS.md) describes possible extensions beyond the
+controlled evaluator; these are not implemented features or delivery commitments.

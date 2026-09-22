@@ -146,9 +146,9 @@ at-most-once authorization, not guaranteed execution or exactly-once delivery.
 
 ## Limits
 
-The gateway still simulates tool enforcement; no external side-effect executor,
-retry protocol, cancellation, dashboard, workflow engine or cryptographic signing
-is added. Database/process owners remain trusted. Triggers/validation catch
+Demo tools remain simulated; evaluation mode supplies real sandbox effects and
+execution receipts as described below. No automatic retry protocol, cancellation,
+dashboard, workflow engine or cryptographic signing is supplied. Database/process owners remain trusted. Triggers/validation catch
 structural corruption, not a hostile owner who rewrites valid records/history or
 rolls back the entire database. Existing bearer-token transport/deployment limits
 still apply. Review inspection deliberately supplies hashes and trusted summaries,
