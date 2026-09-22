@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0",
+  "policy_version": "demo_v1",
+  "classes": {
+    "read_only": {
+      "minimum_authority_floor": 0,
+      "allowed_envelopes": ["full", "non_destructive", "read_only"]
+    },
+    "write": {
+      "minimum_authority_floor": 1,
+      "allowed_envelopes": ["full", "non_destructive"]
+    },
+    "destructive": {
+      "minimum_authority_floor": 2,
+      "allowed_envelopes": ["full"]
+    }
+  },
+  "gate_requirements": {
+    "0": { "evidence": [], "lease": false },
+    "1": { "evidence": ["dry_run", "diff"], "lease": false },
+    "2": { "evidence": [], "lease": true }
+  },
+  "tools": [
+    { "id": "fs.list", "class": "read_only" },
+    { "id": "fs.read", "class": "read_only" },
+    { "id": "fs.write", "class": "write" },
+    { "id": "git.commit", "class": "write" },
+    { "id": "fs.delete", "class": "destructive" },
+    { "id": "shell.rm", "class": "destructive" },
+    { "id": "git.reset_hard", "class": "destructive" }
+  ]
+}

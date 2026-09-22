@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:cde-kingpin:v1:AuthorityRequest",
+  "title": "AuthorityRequest",
+  "description": "The request argument to Kingpin.decide, not the HTTP /tool envelope. Contract version is in the schema ID: the existing request has no schema_version. Signal and server-selected evaluation_id are separate arguments. Evidence remains unconstrained to preserve JavaScript coercion.",
+  "type": "object",
+  "properties": {
+    "tool": {
+      "type": "string",
+      "pattern": "\\S"
+    },
+    "args": {
+      "type": "object"
+    },
+    "speaker_id": {
+      "type": "string",
+      "pattern": "\\S"
+    },
+    "channel_id": {
+      "type": "string",
+      "pattern": "\\S"
+    },
+    "session_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "scene_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "task_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "dry_run": {},
+    "diff": {},
+    "lease_token": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "plan_id": {},
+    "user_request": {},
+    "demo_fixture": {}
+  },
+  "required": [
+    "tool",
+    "speaker_id",
+    "channel_id"
+  ],
+  "additionalProperties": false
+}

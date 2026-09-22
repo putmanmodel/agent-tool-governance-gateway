@@ -1,0 +1,408 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:kingpin:audit:GovernanceReviewEvent:2.0",
+  "title": "GovernanceReviewEvent",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "evaluation_id",
+    "decision_id",
+    "principal_id",
+    "agent_id",
+    "tool_id",
+    "tool_class",
+    "arguments_hash",
+    "lease_id",
+    "lease_check",
+    "outcome",
+    "policy_version",
+    "expires_at_utc",
+    "schema_version",
+    "event_id",
+    "event_type",
+    "timestamp_utc",
+    "request_id",
+    "reason_codes",
+    "gate",
+    "lease_epoch",
+    "context",
+    "envelope",
+    "signal",
+    "requirements",
+    "review_id",
+    "reviewer_principal_id"
+  ],
+  "properties": {
+    "evaluation_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "decision_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "principal_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "agent_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tool_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tool_class": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "arguments_hash": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "lease_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "lease_check": {
+      "enum": [
+        null,
+        "ok",
+        "missing",
+        "expired",
+        "epoch_revoked",
+        "nonce_revoked",
+        "out_of_scope",
+        "explicit_revoked",
+        "capability_revoked",
+        "envelope_contracted",
+        "outside_capability_envelope"
+      ]
+    },
+    "outcome": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "policy_version": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "expires_at_utc": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "schema_version": {
+      "const": "2.0"
+    },
+    "event_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "event_type": {
+      "enum": [
+        "review.requested",
+        "review.approved",
+        "review.denied",
+        "review.invalidated",
+        "review.execution_authorized",
+        "review.execution_consumed"
+      ]
+    },
+    "timestamp_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "request_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "reason_codes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "gate": {
+      "enum": [
+        null,
+        0,
+        1,
+        2
+      ]
+    },
+    "lease_epoch": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "context": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "session_id": {
+              "type": "string",
+              "pattern": "\\S"
+            },
+            "speaker_id": {
+              "type": "string",
+              "pattern": "\\S"
+            },
+            "channel_id": {
+              "type": "string",
+              "pattern": "\\S"
+            },
+            "scope_key": {
+              "type": "string",
+              "pattern": "\\S"
+            }
+          },
+          "required": [
+            "session_id",
+            "speaker_id",
+            "channel_id",
+            "scope_key"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "envelope": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "level": {
+              "enum": [
+                "full",
+                "non_destructive",
+                "read_only",
+                "quarantined"
+              ]
+            },
+            "tools": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "revision": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "clean_evaluations": {
+              "enum": [
+                0,
+                1
+              ]
+            },
+            "restoration_step_after": {
+              "const": 2
+            },
+            "revoked_tools": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "level",
+            "tools",
+            "revision",
+            "clean_evaluations",
+            "restoration_step_after",
+            "revoked_tools"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "signal": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "gate",
+            "reason_codes",
+            "deviation"
+          ],
+          "properties": {
+            "gate": {
+              "enum": [
+                0,
+                1,
+                2
+              ]
+            },
+            "reason_codes": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 1,
+              "items": {
+                "enum": [
+                  "DEVIATION_INACTIVE",
+                  "LOW_CONFIDENCE",
+                  "REVIEW_THRESHOLD_REACHED",
+                  "DEVIATION_PERSISTING",
+                  "LEASE_THRESHOLD_REACHED",
+                  "QUARANTINE_THRESHOLD_REACHED"
+                ]
+              }
+            },
+            "deviation": {
+              "type": "object",
+              "properties": {
+                "severity": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "ema_severity": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "confidence": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "active": {
+                  "type": "boolean"
+                },
+                "enter": {
+                  "type": "boolean"
+                },
+                "exit": {
+                  "type": "boolean"
+                },
+                "vector": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "number",
+                    "minimum": 0
+                  }
+                }
+              },
+              "required": [
+                "severity",
+                "ema_severity",
+                "confidence",
+                "active",
+                "enter",
+                "exit",
+                "vector"
+              ],
+              "additionalProperties": false
+            }
+          }
+        }
+      ]
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "requirements": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "evidence",
+            "missing_evidence",
+            "authority",
+            "tool_floor_gate"
+          ],
+          "properties": {
+            "evidence": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "dry_run",
+                  "diff"
+                ]
+              }
+            },
+            "missing_evidence": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "dry_run",
+                  "diff"
+                ]
+              }
+            },
+            "authority": {
+              "enum": [
+                "none",
+                "lease"
+              ]
+            },
+            "tool_floor_gate": {
+              "enum": [
+                0,
+                1,
+                2
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "review_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "reviewer_principal_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}

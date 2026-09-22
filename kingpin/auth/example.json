@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0",
+  "principals": [
+    {
+      "principal_id": "example-agent",
+      "role": "agent",
+      "token": "EXAMPLE_ONLY_REPLACE_AGENT_TOKEN_00000000",
+      "agent_id": "example-agent",
+      "allowed_contexts": [
+        { "session_id": "example-session", "channel_id": "example-channel", "scene_id": "example-scene", "task_id": null }
+      ]
+    },
+    { "principal_id": "example-admin", "role": "authority_admin", "token": "EXAMPLE_ONLY_REPLACE_ADMIN_TOKEN_00000000" },
+    { "principal_id": "example-reviewer", "role": "reviewer", "token": "EXAMPLE_ONLY_REPLACE_REVIEW_TOKEN_00000000" }
+  ]
+}

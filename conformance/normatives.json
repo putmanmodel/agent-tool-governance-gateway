@@ -1,0 +1,50 @@
+[
+  {
+    "id": "N11",
+    "title": "Contract Requirement for Irreversible/Amplified Effect",
+    "source": "Paper 8 v0.2, section 5, N11, pages 8–9; demo06_irreversible_requires_contract",
+    "requirement": "Irreversible or high-impact paths require explicit governing conditions; reject operations lacking those conditions.",
+    "coverage": "N11a contract requirement through real Kingpin lease checks. Scope, nonce/epoch invalidation and envelope checks are this runtime's contract-validity profile. N11b amplification measurement is not covered.",
+    "assertions": [
+      "lease_valid",
+      "intended_operation_allowed",
+      "missing_lease",
+      "specific_lease_rejection",
+      "denied",
+      "withheld",
+      "contracted_envelope_retained",
+      "destructive_not_in_envelope",
+      "recovered_envelope"
+    ]
+  },
+  {
+    "id": "N21",
+    "title": "Evidence Supports Decision",
+    "source": "Paper 8 v0.2, section 5, N21, pages 11–12; demo11_evidence_supports_decision",
+    "requirement": "Decisions must be supported by their evidence; contradictory claims must not be treated as supported.",
+    "coverage": "Checks actual CDE/Kingpin/lease evidence against gateway permission and explicit fixture expectations. This harness does not implement the original paper's separate contradiction-detector demo.",
+    "assertions": [
+      "gateway_matches_authority",
+      "required_evidence",
+      "missing_evidence_withheld",
+      "evidence_satisfied",
+      "staged_recovery",
+      "review",
+      "withheld"
+    ]
+  },
+  {
+    "id": "N24",
+    "title": "Reflex Forwards, Governance Decides",
+    "source": "Paper 8 v0.2, section 5, N24, pages 12–13; demo19_reflex_forwards_governance_decides",
+    "requirement": "Forwarding a signal alone must not authorize action; governance independently decides.",
+    "coverage": "Governance half only, exercised with real CDE upstream forwarding. No Reflex implementation exists here: Reflex-specific proof/break conformance is not claimed.",
+    "assertions": [
+      "gateway_matches_authority",
+      "upstream_open_is_not_authority",
+      "destructive_floor",
+      "missing_lease",
+      "withheld"
+    ]
+  }
+]

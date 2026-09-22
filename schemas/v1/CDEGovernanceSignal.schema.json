@@ -1,0 +1,279 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:cde-kingpin:v1:CDEGovernanceSignal",
+  "title": "CDEGovernanceSignal",
+  "description": "CDE evaluation only. Evidence and external lease requirements are not authority grants. Existing wire schema_version 1.0.",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "scope_key": {
+      "type": "string",
+      "pattern": "\\S"
+    },
+    "deviation": {
+      "type": "object",
+      "properties": {
+        "severity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "ema_severity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "active": {
+          "type": "boolean"
+        },
+        "enter": {
+          "type": "boolean"
+        },
+        "exit": {
+          "type": "boolean"
+        },
+        "vector": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number",
+            "minimum": 0
+          }
+        }
+      },
+      "required": [
+        "severity",
+        "ema_severity",
+        "confidence",
+        "active",
+        "enter",
+        "exit",
+        "vector"
+      ],
+      "additionalProperties": false
+    },
+    "gate": {
+      "enum": [
+        0,
+        1,
+        2
+      ]
+    },
+    "gate_label": {
+      "enum": [
+        "PASS",
+        "EVIDENCE REQUIRED",
+        "LEASE REQUIRED"
+      ]
+    },
+    "evidence_requirements": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "dry_run",
+          "diff"
+        ]
+      }
+    },
+    "reason_codes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "items": {
+        "enum": [
+          "DEVIATION_INACTIVE",
+          "LOW_CONFIDENCE",
+          "REVIEW_THRESHOLD_REACHED",
+          "DEVIATION_PERSISTING",
+          "LEASE_THRESHOLD_REACHED",
+          "QUARANTINE_THRESHOLD_REACHED"
+        ]
+      }
+    },
+    "authority": {
+      "type": "object",
+      "properties": {
+        "requirement": {
+          "enum": [
+            "none",
+            "lease"
+          ]
+        },
+        "recommendation": {
+          "enum": [
+            "none",
+            "request_external_lease"
+          ]
+        }
+      },
+      "required": [
+        "requirement",
+        "recommendation"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "schema_version",
+    "scope_key",
+    "deviation",
+    "gate",
+    "gate_label",
+    "evidence_requirements",
+    "reason_codes",
+    "authority"
+  ],
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "gate": {
+            "const": 0
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "gate_label": {
+            "const": "PASS"
+          },
+          "evidence_requirements": {
+            "const": []
+          },
+          "reason_codes": {
+            "items": {
+              "enum": [
+                "DEVIATION_INACTIVE"
+              ]
+            }
+          },
+          "authority": {
+            "properties": {
+              "requirement": {
+                "const": "none"
+              },
+              "recommendation": {
+                "const": "none"
+              }
+            }
+          },
+          "deviation": {
+            "properties": {
+              "active": {
+                "const": false
+              },
+              "enter": {
+                "const": false
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "gate": {
+            "const": 1
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "gate_label": {
+            "const": "EVIDENCE REQUIRED"
+          },
+          "evidence_requirements": {
+            "const": [
+              "dry_run",
+              "diff"
+            ]
+          },
+          "reason_codes": {
+            "items": {
+              "enum": [
+                "LOW_CONFIDENCE",
+                "REVIEW_THRESHOLD_REACHED",
+                "DEVIATION_PERSISTING"
+              ]
+            }
+          },
+          "authority": {
+            "properties": {
+              "requirement": {
+                "const": "none"
+              },
+              "recommendation": {
+                "const": "none"
+              }
+            }
+          },
+          "deviation": {
+            "properties": {
+              "active": {
+                "const": true
+              },
+              "exit": {
+                "const": false
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "gate": {
+            "const": 2
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "gate_label": {
+            "const": "LEASE REQUIRED"
+          },
+          "evidence_requirements": {
+            "const": []
+          },
+          "reason_codes": {
+            "items": {
+              "enum": [
+                "LEASE_THRESHOLD_REACHED",
+                "QUARANTINE_THRESHOLD_REACHED"
+              ]
+            }
+          },
+          "authority": {
+            "properties": {
+              "requirement": {
+                "const": "lease"
+              },
+              "recommendation": {
+                "const": "request_external_lease"
+              }
+            }
+          },
+          "deviation": {
+            "properties": {
+              "active": {
+                "const": true
+              },
+              "exit": {
+                "const": false
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

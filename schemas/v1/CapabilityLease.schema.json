@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:cde-kingpin:v1:CapabilityLease",
+  "title": "CapabilityLease",
+  "description": "Existing Kingpin.issue response, not a self-contained grant. Contract version is in the schema ID; no version is added to the wire. Tool, canonical args, expiry milliseconds and revocation live only in Kingpin memory.",
+  "type": "object",
+  "properties": {
+    "lease_token": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "lease_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "context": {
+      "type": "object",
+      "properties": {
+        "session_id": {
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "speaker_id": {
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "channel_id": {
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "scope_key": {
+          "type": "string",
+          "pattern": "\\S"
+        }
+      },
+      "required": [
+        "session_id",
+        "speaker_id",
+        "channel_id",
+        "scope_key"
+      ],
+      "additionalProperties": false
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "issuer": {
+      "const": "kingpin"
+    }
+  },
+  "required": [
+    "lease_token",
+    "lease_id",
+    "context",
+    "expires_at",
+    "issuer"
+  ],
+  "additionalProperties": false
+}

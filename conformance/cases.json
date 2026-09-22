@@ -1,0 +1,105 @@
+[
+  {
+    "demo_id": "proof_non_destructive_allow",
+    "mode": "proof",
+    "fixture_path": "conformance/fixtures/non_destructive.json",
+    "scenario": "non_destructive",
+    "normative_ids": [
+      "N21",
+      "N24"
+    ]
+  },
+  {
+    "demo_id": "proof_required_evidence",
+    "mode": "proof",
+    "fixture_path": "conformance/fixtures/evidence.json",
+    "scenario": "evidence",
+    "normative_ids": [
+      "N21"
+    ]
+  },
+  {
+    "demo_id": "proof_scoped_lease",
+    "mode": "proof",
+    "fixture_path": "conformance/fixtures/scoped_lease.json",
+    "scenario": "scoped_lease",
+    "normative_ids": [
+      "N11",
+      "N21"
+    ]
+  },
+  {
+    "demo_id": "proof_deterministic_recovery",
+    "mode": "proof",
+    "fixture_path": "conformance/fixtures/recovery.json",
+    "scenario": "recovery",
+    "normative_ids": [
+      "N21"
+    ]
+  },
+  {
+    "demo_id": "break_destructive_without_lease",
+    "mode": "break",
+    "fixture_path": "conformance/fixtures/missing_lease.json",
+    "scenario": "missing_lease",
+    "normative_ids": [
+      "N11"
+    ]
+  },
+  {
+    "demo_id": "break_nonce_revoked",
+    "mode": "break",
+    "fixture_path": "conformance/fixtures/nonce_revoked.json",
+    "scenario": "nonce_revoked",
+    "normative_ids": [
+      "N11"
+    ]
+  },
+  {
+    "demo_id": "break_epoch_revoked",
+    "mode": "break",
+    "fixture_path": "conformance/fixtures/epoch_revoked.json",
+    "scenario": "epoch_revoked",
+    "normative_ids": [
+      "N11"
+    ]
+  },
+  {
+    "demo_id": "break_out_of_scope",
+    "mode": "break",
+    "fixture_path": "conformance/fixtures/out_of_scope.json",
+    "scenario": "out_of_scope",
+    "normative_ids": [
+      "N11"
+    ]
+  },
+  {
+    "demo_id": "break_human_review_no_execution",
+    "mode": "break",
+    "fixture_path": "conformance/fixtures/human_review.json",
+    "scenario": "human_review",
+    "normative_ids": [
+      "N21"
+    ]
+  },
+  {
+    "demo_id": "break_agent_envelope_expansion",
+    "mode": "break",
+    "fixture_path": "conformance/fixtures/envelope.json",
+    "scenario": "envelope",
+    "normative_ids": [
+      "N11",
+      "N21"
+    ]
+  },
+  {
+    "demo_id": "break_upstream_is_not_authority",
+    "mode": "break",
+    "fixture_path": "conformance/fixtures/upstream.json",
+    "scenario": "upstream",
+    "normative_ids": [
+      "N11",
+      "N24"
+    ]
+  }
+]

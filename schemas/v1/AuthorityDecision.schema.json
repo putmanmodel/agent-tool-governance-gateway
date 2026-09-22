@@ -1,0 +1,188 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:cde-kingpin:v1:AuthorityDecision",
+  "title": "AuthorityDecision",
+  "description": "Kingpin-owned decision consumed mechanically by the gateway. Cross-field policy and state transitions remain in Kingpin.",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "issuer": {
+      "const": "kingpin"
+    },
+    "policy_version": {
+      "const": "demo_v1"
+    },
+    "evaluation_id": {
+      "type": "string",
+      "pattern": "\\S"
+    },
+    "context": {
+      "type": "object",
+      "properties": {
+        "session_id": {
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "speaker_id": {
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "channel_id": {
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "scope_key": {
+          "type": "string",
+          "pattern": "\\S"
+        }
+      },
+      "required": [
+        "session_id",
+        "speaker_id",
+        "channel_id",
+        "scope_key"
+      ],
+      "additionalProperties": false
+    },
+    "outcome": {
+      "enum": [
+        "allow",
+        "constrain",
+        "deny",
+        "quarantine",
+        "human_review"
+      ]
+    },
+    "reason": {
+      "type": "string",
+      "pattern": "\\S"
+    },
+    "reason_codes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "\\S"
+      }
+    },
+    "capability_envelope": {
+      "type": "object",
+      "properties": {
+        "level": {
+          "enum": [
+            "full",
+            "non_destructive",
+            "read_only",
+            "quarantined"
+          ]
+        },
+        "tools": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "clean_evaluations": {
+          "enum": [
+            0,
+            1
+          ]
+        },
+        "restoration_step_after": {
+          "const": 2
+        },
+        "revoked_tools": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "level",
+        "tools",
+        "revision",
+        "clean_evaluations",
+        "restoration_step_after",
+        "revoked_tools"
+      ],
+      "additionalProperties": false
+    },
+    "cde_gate": {
+      "enum": [
+        0,
+        1,
+        2
+      ]
+    },
+    "tool_floor_gate": {
+      "enum": [
+        0,
+        1,
+        2
+      ]
+    },
+    "effective_gate": {
+      "enum": [
+        0,
+        1,
+        2
+      ]
+    },
+    "effective_gate_label": {
+      "enum": [
+        "PASS",
+        "EVIDENCE REQUIRED",
+        "LEASE REQUIRED"
+      ]
+    },
+    "evidence_requirements": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "dry_run",
+          "diff"
+        ]
+      }
+    },
+    "missing_evidence": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "dry_run",
+          "diff"
+        ]
+      }
+    },
+    "authority_requirement": {
+      "enum": [
+        "none",
+        "lease"
+      ]
+    }
+  },
+  "required": [
+    "schema_version",
+    "issuer",
+    "policy_version",
+    "evaluation_id",
+    "context",
+    "outcome",
+    "reason",
+    "reason_codes",
+    "capability_envelope",
+    "cde_gate",
+    "tool_floor_gate",
+    "effective_gate",
+    "effective_gate_label",
+    "evidence_requirements",
+    "missing_evidence",
+    "authority_requirement"
+  ],
+  "additionalProperties": false
+}

@@ -24,3 +24,15 @@ gateway_node/.env
 
 # Task-local Python environment
 .venv-task/
+
+# Local authentication configuration (never commit real credentials)
+*.auth.local.json
+
+# Generated conformance runs; checked-in sample lives outside this directory
+conformance/output/
+
+# Evaluator local configuration, credentials, databases and sandbox files
+config/evaluation.local/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal

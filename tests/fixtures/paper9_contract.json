@@ -1,0 +1,26 @@
+{
+  "specification": "Paper 9 — Reference Architecture / Interface Contracts v0.2",
+  "purpose": "Specification-only key and vocabulary fixture; not an emitted conformance record",
+  "sections": ["3.1", "3.2", "4.1", "10.1", "10.2"],
+  "exact_keys": [
+    "decision",
+    "demo_id",
+    "evidence",
+    "fixture_hash",
+    "fixture_path",
+    "mode",
+    "normative_ids",
+    "pass",
+    "rationale",
+    "timestamp_utc"
+  ],
+  "canonical_decisions": [
+    "ALLOW",
+    "REVIEW",
+    "DENY",
+    "FLAG_PROJECTION",
+    "REJECT_OR_FLAG_PROJECTION",
+    "QUARANTINE",
+    "ESCALATE"
+  ]
+}

@@ -20,7 +20,7 @@ leases stay revoked and must be issued afresh where required.
 | --- | --- |
 | **CDE** | Deterministic deviation evaluation, confidence, EMA/hysteresis, and Gate 0/1/2 assignment. Emits a versioned governance signal with evidence/lease requirements and audit provenance. |
 | **Kingpin** | Capability envelope, scoped leases, revocation, allow/constrain/deny/quarantine/human review, and deterministic restoration. Consumes CDE's signal and returns an authority decision. |
-| **Gateway** | Enforcement only: applies Kingpin's decision to the simulated tool request. Handles HTTP orchestration and audit logging, without substantive authority policy. |
+| **Gateway** | Enforcement only: applies Kingpin's decision; demo tools are simulated, evaluator tools use the bounded filesystem adapter. Handles HTTP orchestration and audit logging, without substantive authority policy. |
 
 - **Gate 0 — PASS**
 - **Gate 1 — EVIDENCE REQUIRED** (dry-run + diff)
@@ -48,8 +48,8 @@ npm --prefix gateway_node run demo
 The script starts the warm FastAPI CDE service and Node gateway, asserts the
 outcomes, prints the transcript, and stops both. It includes scoped authority,
 revocation, quarantine, staged recovery, and an isolated **HUMAN REVIEW (HTTP 428)**
-fixture. All tools are simulated; authority state is in memory and control-plane
-endpoints are demo-only. Set `CDE_PYTHON` to select another Python environment.
+fixture. All tools are simulated; the demo uses in-memory state and temporary
+agent/admin credentials. Set `CDE_PYTHON` to select another Python environment.
 
 See the [verified transcript](gateway_node/TRANSCRIPT.md),
 [demo details](gateway_node/README.md), and
@@ -70,7 +70,7 @@ The standalone engine remains runnable with `python run_demo.py`, producing
 
 - `src/engine.py` and `manifests/` — CDE evaluation and baseline configuration
 - `cde_service.py` — warm, session-aware CDE service
-- `gateway_node/kingpin/authority.js` — authority policy and state
+- `kingpin/authority.js` — authority policy and state
 - `gateway_node/enforcement.js` — mechanical enforcement
 - `gateway_node/server.js` and `gateway_node/demo.js` — HTTP flow and asserted demo
 
@@ -81,3 +81,50 @@ CC BY-NC 4.0 — see [LICENSE](LICENSE).
 ## Contact
 
 Stephen A. Putman — putmanmodel@pm.me
+
+## v0.3 compatibility baseline
+
+See the [behavior contract and versioned boundary fields](docs/v0.3-behavior-contract.md)
+for regression coverage, schema scope, and current representation limits.
+The four [v1 boundary schemas](schemas/v1/) are descriptive and test-validated;
+they do not change runtime validation or authority policy.
+
+## Authenticated evaluator gateway
+
+Gateway calls now require bearer credentials from a server-controlled
+`KINGPIN_AUTH_FILE`. Agent identities and contexts are explicitly scoped;
+authority administration and reviewer access have separate permissions.
+See [authentication setup and usage](kingpin/auth/README.md). The merged demo
+creates temporary credentials automatically. Kingpin authority semantics and
+frozen v1 payloads remain unchanged.
+
+Proof/break evaluation against [Paper 9 — Reference Architecture & Interface Contracts](https://github.com/putmanmodel/spanda-architectural-framework/blob/main/papers/core/Paper09_Reference_Architecture_Interface_Contracts_0.2.pdf) is available separately via
+`npm --prefix gateway_node run conformance`. See the
+[conformance harness](conformance/README.md) for its registry, coverage limits and
+canonical JSONL artifact. Runtime operational logs retain their existing format.
+
+Persistent [HUMAN REVIEW resolution](kingpin/review/README.md) now supports
+authenticated reviewers, durable bounded approval/denial, current-state
+revalidation and atomic one-use authorization. It does not expand authority.
+
+For an outside developer, begin with the [controlled evaluator quickstart](evaluation/README.md).
+It provides explicit configuration, persistent SQLite startup, local credentials,
+a real sandbox adapter, a readable client and restart verification. See the
+[evaluation notice](evaluation/NOTICE.md) and [security boundaries](evaluation/SECURITY.md).
+
+
+[Execution receipts and restart reconciliation](execution/README.md) now track
+side-effect outcomes separately from Kingpin authorization. Unknown completion
+never causes automatic retry; inconclusive inspection requires reviewer action.
+
+[Future directions](FUTURE_DIRECTIONS.md) describes possible extensions beyond the
+controlled evaluator; these are not implemented features or delivery commitments.
+
+## Evaluation & contact
+
+Interested in evaluating CDE/Kingpin, discussing integration, or collaborating?
+
+Email: [cde.kingpin@pm.me](mailto:cde.kingpin@pm.me)
+
+- Reproducible bugs: GitHub Issues
+- Security vulnerabilities: use GitHub's private vulnerability reporting

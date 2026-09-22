@@ -1,5 +1,12 @@
 # Standalone CDE runtime governance
 
+Scope: this document records the standalone/demo architecture and its historical
+refactoring rationale. Its simulated tools, in-memory Kingpin state and JSONL
+logging describe **demo mode**, not the current controlled evaluator. For v0.4
+persistent reviews, authenticated audit, real sandbox effects and UNKNOWN/restart
+reconciliation, use the [evaluator quickstart](evaluation/README.md),
+[current Kingpin boundary](kingpin/README.md) and [execution contract](execution/README.md).
+
 This repository is the canonical implementation for this demo. No CDE Lite or
 other CDE implementation is used. Kingpin is a local, separate authority-decision
 module implemented in this repository; it does not import an external Kingpin system.
@@ -108,7 +115,7 @@ tool request → CDE → governance_signal v1.0
              → authority_decision v1.0 → gateway enforcement
 ```
 
-`gateway_node/kingpin/authority.js` owns the capability envelope, tool policy,
+`kingpin/authority.js` owns the capability envelope, tool policy,
 evidence decisions, scoped leases, revocation and recovery state.
 `gateway_node/enforcement.js` only maps the returned outcome to HTTP status and
 execution eligibility. `server.js` supplies the selected CDE event ID, calls both
@@ -231,10 +238,11 @@ invalidates that tool's leases. The old unbound `{tool, scope, seconds}` issuanc
 shape is intentionally replaced. Issuance and revocation are Kingpin control-plane
 operations, separate from tool evaluation.
 
-All tools are simulated. The local demo control plane is unauthenticated and
-identity fields are caller-provided. It demonstrates authority state and contract
-boundaries, not production identity verification or remote authorization. A real
-deployment must establish trusted identity and protect the control plane.
+All tools are simulated. The v0.4 gateway now authenticates opaque bearer tokens
+against server-configured principals. Agents are bound to allowed identities and
+contexts; admin and reviewer permissions are separate. See the
+[authentication boundary](kingpin/auth/README.md) for routes, configuration and
+secure-transport requirements. Authentication does not replace Kingpin decisions.
 
 ## State, audit, and validation
 

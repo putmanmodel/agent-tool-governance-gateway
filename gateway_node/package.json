@@ -6,9 +6,15 @@
   "scripts": {
     "dev": "node server.js",
     "demo": "node demo.js",
-    "test": "node --test *.test.js"
+    "test": "node --test *.test.js",
+    "conformance": "node ../conformance/cli.mjs",
+    "evaluation": "node ../evaluation/start.mjs",
+    "evaluation:configure": "node ../evaluation/configure.mjs",
+    "evaluation:client": "node ../evaluation/client.mjs",
+    "evaluation:smoke": "node ../evaluation/smoke.mjs",
+    "evaluation:trace": "node ../evaluation/trace.mjs"
   },
   "dependencies": {
-    "express": "^4.21.2"
+    "express": "^4.22.3"
   }
 }
