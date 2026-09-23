@@ -1,6 +1,7 @@
 import os, time, uuid
 from typing import List, Dict, Any, Optional
 
+from .evidence_budget import EvidenceBudget
 from .types.turn_packet import TurnPacket
 from .types.deviation_event import DeviationEvent
 from .extractors.lexical import extract as extract_lexical, EXTRACTOR_VERSION as LEX_VER
@@ -34,7 +35,8 @@ class CDEEngine:
         scope_keys = scope_keys or self.default_scopes(packet)
 
         # extract layers once per turn (constraint-accessible)
-        layers = [extract_lexical(packet), extract_pragmatic(packet)]
+        budget = EvidenceBudget()
+        layers = [extract_lexical(packet, budget), extract_pragmatic(packet, budget)]
         extractor_versions = {"lexical": LEX_VER, "pragmatic": PRAG_VER}
 
         events: List[DeviationEvent] = []
@@ -71,6 +73,7 @@ class CDEEngine:
                 baseline_hash=baseline_hash,
                 extractor_versions=extractor_versions,
                 evidence=evidence,
+                evidence_budget=budget.summary() if budget.observed > budget.retained else None,
                 decision=decision,
                 governance_signal=evaluate_governance(
                     scope_key,

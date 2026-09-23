@@ -1,5 +1,6 @@
 import re
 from typing import List
+from ..evidence_budget import EvidenceBudget
 from ..types.turn_packet import TurnPacket
 from ..types.layer_output import LayerOutput
 from ..types.evidence import EvidenceSpan
@@ -24,27 +25,35 @@ ULTIMATUM_PATTERNS = [
     r"\blast chance\b",
 ]
 
-def extract(packet: TurnPacket) -> LayerOutput:
+def extract(packet: TurnPacket, budget=None) -> LayerOutput:
+    budget = budget if budget is not None else EvidenceBudget()
     text = (packet.text or "").lower()
     n = max(len(text), 1)
 
-    demand_hits = []
-    for p in DEMAND_PATTERNS:
-        demand_hits += [(m.start(), m.end(), p) for m in re.finditer(p, text)]
+    def hits(patterns):
+        count, details = 0, []
+        for pattern in patterns:
+            for match in re.finditer(pattern, text):
+                count += 1
+                if len(details) < 10:
+                    details.append((match.start(), match.end(), pattern))
+        return count, details
 
-    ult_hits = []
-    for p in ULTIMATUM_PATTERNS:
-        ult_hits += [(m.start(), m.end(), p) for m in re.finditer(p, text)]
+    demand_count, demand_hits = hits(DEMAND_PATTERNS)
+    ult_count, ult_hits = hits(ULTIMATUM_PATTERNS)
+    budget.observed += demand_count + ult_count - len(demand_hits) - len(ult_hits)
 
     # score: demand + ultimatum weighted
-    raw = 0.12 * len(demand_hits) + 0.22 * len(ult_hits)
+    raw = 0.12 * demand_count + 0.22 * ult_count
     score = max(0.0, min(1.0, raw))
 
     # confidence: higher with explicit phrases
-    confidence = max(0.20, min(1.0, 0.35 + 0.10 * min(len(demand_hits), 4) + 0.15 * min(len(ult_hits), 3) + 0.01 * min(n, 100)))
+    confidence = max(0.20, min(1.0, 0.35 + 0.10 * min(demand_count, 4) + 0.15 * min(ult_count, 3) + 0.01 * min(n, 100)))
 
     evidence: List[EvidenceSpan] = []
     for s,e,p in (demand_hits[:10] + ult_hits[:10]):
+        if not budget.admit():
+            continue
         evidence.append(EvidenceSpan(
             span_id=f"{packet.turn_id}:prag:{s}",
             turn_id=packet.turn_id,

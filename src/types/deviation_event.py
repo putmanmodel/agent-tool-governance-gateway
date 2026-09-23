@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, model_serializer
 from typing import Dict, List, Optional, Any
 from .evidence import EvidenceSpan
 from .governance_signal import GovernanceSignal
@@ -28,6 +28,16 @@ class DeviationEvent(BaseModel):
 
     # evidence
     evidence: List[EvidenceSpan]
+    evidence_budget: Optional[Dict[str, Any]] = None
+
+    @model_serializer(mode="wrap")
+    def serialize_event(self, handler):
+        result = handler(self)
+        # Preserve the ordinary/frozen event shape when no detail was omitted.
+        if self.evidence_budget is None:
+            result.pop("evidence_budget", None)
+        return result
+
 
     governance_signal: GovernanceSignal
 
