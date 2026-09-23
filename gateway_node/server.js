@@ -44,6 +44,12 @@ export function createGatewayApp({
   if (!['demo','evaluation'].includes(mode)) throw Error('Unsupported runtime mode');
   if (mode === 'evaluation' && (!adapter || !execution || !build || process.env.CDE_DEMO_FIXTURES === '1')) throw Error('Evaluation requires configured adapter/execution/build and forbids demo fixtures');
   const app = express();
+  const governedToolPaths = mode === 'evaluation' ? ['/tool', '/tool/observed'] : ['/tool'];
+  // Match the same case/trailing-slash rules used by Express route registration.
+  const isGovernedToolIngress = req => req.method === 'POST' && governedToolPaths.some(route => {
+    const candidate = app.enabled('strict routing') ? req.path : req.path.replace(/\/$/, '');
+    return app.enabled('case sensitive routing') ? candidate === route : candidate.toLowerCase() === route;
+  });
   const authenticatedRequests = new WeakMap();
   function auditContext(req, res) {
     req.auditContext ??= { request_id: crypto.randomUUID(), principal_id: null,
@@ -274,9 +280,11 @@ export function createGatewayApp({
     }
     res.status(enforcement.status).json(response);
   });
-  app.post('/tool', toolHandler);
+  for (const route of governedToolPaths) app.post(route, (req, res) => {
+    req.observedTool = route === '/tool/observed';
+    return toolHandler(req, res);
+  });
   if (mode === 'evaluation') {
-    app.post('/tool/observed', (req, res) => { req.observedTool = true; return toolHandler(req, res); });
     // No configuration, credentials, filesystem paths or operational payloads.
     app.get('/status', (req, res) => {
       try { authenticateRequest(req); res.json(build); }
@@ -358,7 +366,7 @@ export function createGatewayApp({
   // Do not expose JSON parser stacks, internal errors or reflected payloads.
   app.use((err, req, res, next) => {
     if (res.headersSent) return next(err);
-    if (req.path === '/tool') {
+    if (isGovernedToolIngress(req)) {
       const context = auditContext(req, res);
       context.principal_id = authenticatedRequests.get(req)?.principal_id ?? null;
       try { authority.recordEnforcement({}, context, { outcome: 'failed', reason_codes: ['INVALID_REQUEST'] }); } catch {}

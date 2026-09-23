@@ -23,6 +23,11 @@ function cde(fixture, texts) {
 // no input-authored code, assertion expression language, or state mutation.
 export function observe(fixture) {
   const { scenario, request, calm_text } = fixture;
+  if (scenario === 'evidence' && (!fixture.evidence || Array.isArray(fixture.evidence)
+      || typeof fixture.evidence !== 'object'
+      || Object.keys(fixture.evidence).some(key => !['dry_run', 'diff'].includes(key)))) {
+    throw new Error('Evidence phase may supply only dry_run and diff');
+  }
   let texts;
   switch (scenario) {
     case 'non_destructive': case 'missing_lease': case 'upstream': texts = [calm_text]; break;

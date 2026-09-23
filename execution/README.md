@@ -94,8 +94,35 @@ operator action. No `execute()` call occurs in recovery or reconciliation.
 Unknown completion must never silently become permission to repeat a side effect.
 The ledger refuses a new execution on an unresolved resource until reconciliation
 or reviewer disposition completes. For the filesystem adapter the resource is
-root identity plus relative filename, shared by write/delete regardless of agent
-or context. Generic adapters without a resource key conservatively key identical
+root identity plus **filesystem-equivalent filename**, shared by write/delete
+regardless of agent or context. The stored spelling hash is an exact-name fast
+check, not the complete namespace identity. Under the same writer transaction,
+`adapter.resourcesConflict(preparation, priorRecord)` also compares unresolved
+resources using [the centralized sandbox namespace comparison](../evaluation/resource_identity.js).
+Existing targets use filesystem device/inode lookup. If both names are absent,
+a private temporary child directory asks the host filesystem whether the names
+resolve to the same entry; JavaScript case folding or Unicode normalization is
+not used. The child namespace inherits the sandbox filesystem's naming semantics
+(including directory casefold settings on supporting filesystems).
+
+The absent-name check creates only zero-content probe metadata inside a private
+`.kingpin-identity-*` directory, never either requested sandbox target. Normal
+completion removes the directory. A process crash may leave an inert probe
+directory; it does not grant authority or replace persisted holds. A trusted
+operator may remove leftover probe directories while the evaluator is stopped.
+This comparison is synchronous inside the writer lock. Reads and the adapter's
+reconciliation still perform no writes; the namespace probe is conflict checking,
+not tool execution or a retry.
+
+SQLite remains schema 5: RC1 `sandbox.v1` root/path reconciliation metadata is
+sufficient to interpret its existing unresolved records. No spelling hashes or
+historical records are rewritten. Missing, incompatible or unreadable namespace
+metadata cannot prove separation and conservatively conflicts until the existing
+reconciliation/disposition workflow releases that hold. The SQL spelling-key
+index remains an additional exact-name guard; adapter equivalence is checked by
+the runtime before insertion. No migration or new public schema is needed.
+
+Generic adapters without a resource key conservatively key identical
 tool/arguments. This is execution uncertainty handling, not a change to Kingpin's
 authority decision. A resulting HTTP 409 identifies the prior execution.
 

@@ -35,6 +35,8 @@ the existing separate demo/regression suite.
 - `fixtures/*.json`: checked-in input packets, scope, tool arguments, evidence,
   lease duration, injected authority clock and observation texts needed to reproduce
   each case. No fake decisions, CDE signals, lease tokens or expected runtime outputs.
+  For the evidence proof, the evidence phase accepts only `dry_run` and `diff`;
+  assertions independently require the same operation before and after evidence.
 - `cde_bridge.py`, `runtime.mjs`: real CDE/Kingpin/enforcement observations and
   isolated product audit traces; trusted issue/revoke APIs only.
 - `assertions.mjs`: explicit JavaScript assertions over observations. No arbitrary
@@ -75,7 +77,9 @@ N11/N21/N24 or the full PUTMAN architecture are PROVEN. In particular, authority
 restoration is tested as an existing profile behavior; it is not relabeled as
 N30's baseline stabilization. Scope/revocation mechanisms are current ways of
 satisfying N11's governing-condition requirement, not new universal rules attributed
-to the paper. HUMAN REVIEW has no resolution API.
+to the paper. The current controlled evaluator provides persistent, authenticated review
+resolution and one-use execution APIs; this harness case checks initial
+withholding only. See the [review contract](../kingpin/review/README.md).
 
 ## Registered cases
 

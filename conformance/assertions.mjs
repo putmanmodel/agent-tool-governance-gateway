@@ -1,3 +1,5 @@
+import { canonical } from '../kingpin/audit/events.js';
+
 // A fixed list of ordinary assertions over observations, not a policy/rule engine.
 export function assess(observed) {
   const { selected: s, observations: all, scenario } = observed;
@@ -14,6 +16,11 @@ export function assess(observed) {
     case 'non_destructive':
       check('read_only_allow', s.decision.outcome, 'allow'); check('gateway_permits', allowed(s), true); break;
     case 'evidence':
+      // Compare every request field except the two evidence fields.
+      const operation = input => canonical(Object.fromEntries(Object.entries(input)
+        .filter(([key]) => !['dry_run', 'diff'].includes(key))));
+      check('same_governed_operation', operation(s.input), operation(all[0].input));
+      check('evidence_supplied', s.input.dry_run === true && typeof s.input.diff === 'string' && Boolean(s.input.diff.trim()), true);
       check('missing_evidence_constrained', all[0].decision.outcome, 'constrain');
       check('missing_evidence_withheld', allowed(all[0]), false);
       check('required_evidence', all[0].decision.missing_evidence, ['dry_run', 'diff']);

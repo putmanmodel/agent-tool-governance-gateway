@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { sandboxResourcesConflict } from './resource_identity.js';
 
 // Flat namespace: no agent-controlled directories, links, shell or path resolution.
 // The configured root and host process are trusted and exclusively controlled.
@@ -35,6 +36,9 @@ export function createSandboxAdapter(root) {
   }
   return Object.freeze({
     isSideEffecting(tool) { return tool !== 'fs.read'; },
+    resourcesConflict(preparation, previous) {
+      return sandboxResourcesConflict(root, identity, preparation?.evidence, previous.reconciliation_data);
+    },
     prepare({ tool, args }) {
       if (!['fs.write','fs.delete'].includes(tool)) return null;
       filename(args);

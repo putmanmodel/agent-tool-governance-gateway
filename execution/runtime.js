@@ -45,7 +45,8 @@ export class ExecutionRuntime {
           : e.event_type === 'authority.decision' && e.outcome === 'allow'))) throw Error('Missing durable authorization');
       if (reviewId && tx.reviews.get(reviewId)?.binding_hash !== r.request_hash) throw Error('Review execution binding mismatch');
       const prior = tx.executions.list().find(e => e.decision_id === r.decision_id || (r.review_id && e.review_id === r.review_id)
-        || (e.resource_hash === r.resource_hash && UNRESOLVED.includes(e.status)));
+        || (UNRESOLVED.includes(e.status) && (e.resource_hash === r.resource_hash
+          || this.#adapter.resourcesConflict?.(preparation, e))));
       if (prior) throw Object.assign(Error('Execution already recorded or resource requires reconciliation'), { code: 'EXECUTION_CONFLICT', execution_id: prior.execution_id });
       tx.executions.insert(validateExecution(r)); tx.audit.append(executionEvent(r, this.#clock));
     });

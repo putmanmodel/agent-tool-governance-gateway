@@ -180,3 +180,27 @@ test('CLI rejects output into operational log directory', () => {
   assert.equal(result.status, 1);
   assert.deepEqual(existsSync(filename) ? readFileSync(filename) : null, before);
 });
+
+test('evidence-phase fixture overrides cannot replace operation identity', async () => {
+  const { observe } = await import('../conformance/runtime.mjs');
+  const { assess } = await import('../conformance/assertions.mjs');
+  const fixture = JSON.parse(readFileSync(path.join(ROOT, 'conformance/fixtures/evidence.json')));
+  assert.equal(assess(observe(fixture)).pass, true);
+  for (const [key, value] of Object.entries({ tool:'fs.list', args:{path:'other'}, action:'other', tool_action:'other',
+    target:'other', tool_target:'other', session_id:'other', speaker_id:'other', channel_id:'other', scene_id:'other', task_id:'other',
+    agent_id:'other', plan_id:'other', user_request:'other', lease_token:'other' })) {
+    assert.throws(() => observe({ ...fixture, evidence:{ ...fixture.evidence, [key]:value } }), /only dry_run and diff/, key);
+  }
+  assert.throws(() => observe({ ...fixture, evidence:{ tool:'fs.list' } }), /only dry_run and diff/);
+});
+
+test('evidence assessment independently rejects changed operation or absent evidence', async () => {
+  const { observe } = await import('../conformance/runtime.mjs');
+  const { assess } = await import('../conformance/assertions.mjs');
+  const fixture = JSON.parse(readFileSync(path.join(ROOT, 'conformance/fixtures/evidence.json')));
+  for (const change of [{tool:'fs.list'}, {action:'other'}, {target:'other'}, {args:{path:'other'}}, {session_id:'other'}, {dry_run:false}, {diff:''}]) {
+    const observed = observe(fixture);
+    Object.assign(observed.selected.input, change);
+    assert.equal(assess(observed).pass, false, JSON.stringify(change));
+  }
+});
