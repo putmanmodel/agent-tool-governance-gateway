@@ -43,5 +43,5 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     console.log(JSON.stringify(runtime.identity));
     console.log(`Evaluation listening on http://${runtime.config.host === '::1' ? '[::1]' : runtime.config.host}:${runtime.config.port}`);
     for (const sig of ['SIGINT','SIGTERM']) process.once(sig, async () => { await runtime.close(); process.exit(0); });
-  } catch { console.error('Evaluation startup failed. Check required configuration, dependencies, permissions and compatible state. No permissive fallback was started.'); process.exitCode = 1; }
+  } catch (error) { if (error.code === 'IDENTIFIER_CONFIGURATION') console.error(error.message); console.error('Evaluation startup failed. Check required configuration, dependencies, permissions and compatible state. No permissive fallback was started.'); process.exitCode = 1; }
 }

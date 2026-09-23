@@ -6,6 +6,7 @@ from fastapi import FastAPI, HTTPException
 
 from src.engine import CDEEngine
 from src.types.turn_packet import TurnPacket
+from src.types.identifier_limits import validate_identifiers
 from src.response import build_response
 
 REPO_ROOT = str(Path(__file__).resolve().parent)
@@ -24,6 +25,7 @@ def _engine_for(session_id: str) -> CDEEngine:
 @app.post("/turn")
 def turn(payload: Dict[str, Any]) -> Dict[str, Any]:
     try:
+        validate_identifiers(payload)
         session_id = str(payload.get("session_id") or "default")
         turn_payload = dict(payload)
         turn_payload.pop("session_id", None)

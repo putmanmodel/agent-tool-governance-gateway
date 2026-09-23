@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.0",
+  "max_utf8_bytes": {
+    "turn_id": 128,
+    "speaker_id": 256,
+    "session_id": 256,
+    "channel_id": 256,
+    "scene_id": 256,
+    "task_id": 256,
+    "tool": 256
+  }
+}

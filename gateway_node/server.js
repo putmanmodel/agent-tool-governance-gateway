@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { validateIdentifiers } from "./identifier_limits.js";
 import express from "express";
 import fs from "node:fs";
 import path from "node:path";
@@ -127,6 +128,7 @@ export function createGatewayApp({
 
   app.post("/turn", protectedRoute("runtime.evaluate", async (req, res) => {
     try {
+      validateIdentifiers(req.body);
       const result = await evaluateTurn(req.body);
       res.json(result);
     } catch (err) {
@@ -158,6 +160,12 @@ export function createGatewayApp({
   const toolHandler = protectedRoute("runtime.evaluate", async (req, res) => {
     req.governedTool = true;
     const body = req.body || {};
+    try { validateIdentifiers(body); }
+    catch {
+      try { authority.recordEnforcement({}, req.auditContext, { outcome: 'failed', reason_codes: ['INVALID_REQUEST'] }); } catch {}
+      res.status(400).json({ error: 'Invalid identifiers' });
+      return;
+    }
     const {
       tool,
       args,

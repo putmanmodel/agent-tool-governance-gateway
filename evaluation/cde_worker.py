@@ -22,10 +22,11 @@ print(json.dumps({"ready": True}), flush=True)
 for line in sys.stdin:
     try:
         payload = json.loads(line)
+        packet = TurnPacket.model_validate(payload)
         session = payload.pop('session_id', 'default')
         if session not in engines:
             engines[session] = CDEEngine(str(Path(__file__).resolve().parents[1]))
-        response = build_response(engines[session].process_turn(TurnPacket.model_validate(payload)))
+        response = build_response(engines[session].process_turn(packet))
         print(json.dumps({"result": response}), flush=True)
     except Exception:
         print(json.dumps({"error": "CDE evaluation failed"}), flush=True)

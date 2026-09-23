@@ -36,7 +36,8 @@ Aggregate omission counts explain the missing detail without constructing it.
 The gateway still echoes evaluation input, so total output includes input-sized
 text; the bound addresses evidence amplification, not a constant total HTTP size
 independent of ingress. Caller-selected identifiers also remain part of existing
-payloads. No ingress limit, authority rule, recovery rule, or authentication
+payloads, with explicit UTF-8 byte limits described in
+[Replicated identifier bounds](identifier-bounds.md). No ingress limit, authority rule, recovery rule, or authentication
 behavior changes.
 
 ## Validation and measurement

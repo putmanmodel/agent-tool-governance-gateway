@@ -157,3 +157,32 @@ test('gateway adapter receives only permitted actions and cannot replace trusted
   assert.equal((await dispatch(app, '/tool', body('fs.write', { path: 'safe', content: 'yes' }))).body.allow, true);
   assert.equal(count, 2);
 });
+
+for (const field of ['principal_id','agent_id','session_id','channel_id','scene_id','task_id','reviewer_context','tool']) {
+  test(`startup rejects oversized configured ${field} before storage or worker initialization`, async t => {
+    const { startEvaluation } = await import('../evaluation/start.mjs');
+    const f=fixture(t);
+    if(field==='tool') {
+      const filename=path.join(f.root,'policy.json'), policy=JSON.parse(fs.readFileSync(filename));
+      policy.tools.push({id:'x'.repeat(257),class:'read_only'});fs.writeFileSync(filename,JSON.stringify(policy));
+    } else {
+      const filename=path.join(f.root,'auth.json'), auth=JSON.parse(fs.readFileSync(filename));
+      if(['principal_id','agent_id'].includes(field)) auth.principals[0][field]='x'.repeat(257);
+      else if(field==='reviewer_context') auth.principals.find(p=>p.role==='reviewer').allowed_contexts=[{
+        ...auth.principals[0].allowed_contexts[0],scene_id:'x'.repeat(257)}];
+      else auth.principals[0].allowed_contexts[0][field]='x'.repeat(257);
+      fs.writeFileSync(filename,JSON.stringify(auth));
+    }
+    const rejected = error => error.code==='IDENTIFIER_CONFIGURATION' && /Configured/.test(error.message);
+    assert.throws(()=>openEvaluation(f.file,{initialize:true}),rejected);
+    await assert.rejects(startEvaluation(f.file,{initialize:true}),rejected);
+    const database=path.join(f.root,'governance.sqlite');
+    assert.equal(fs.existsSync(database),false);assert.equal(fs.existsSync(database+'.runtime.lock'),false);
+    // A reopening attempt must reject configuration before inspecting/opening state.
+    fs.writeFileSync(database,'sentinel: must remain untouched');
+    const before=fs.statSync(database);
+    assert.throws(()=>openEvaluation(f.file),rejected);
+    assert.equal(fs.readFileSync(database,'utf8'),'sentinel: must remain untouched');
+    assert.equal(fs.statSync(database).mtimeMs,before.mtimeMs);
+  });
+}

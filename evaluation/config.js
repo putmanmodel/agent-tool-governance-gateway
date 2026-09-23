@@ -1,8 +1,9 @@
+import { validateIdentifiers } from '../gateway_node/identifier_limits.js';
 import { ExecutionRuntime } from '../execution/runtime.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { loadPolicy } from '../kingpin/policy/loader.js';
-import { loadAuthentication } from '../kingpin/auth/access.js';
+import { createAuthentication } from '../kingpin/auth/access.js';
 import { SQLiteStateStore } from '../kingpin/state/sqlite.js';
 import { KingpinAuthority } from '../kingpin/index.js';
 import { createSandboxAdapter } from './sandbox.js';
@@ -19,7 +20,21 @@ export function loadEvaluation(filename) {
   if (process.env.CDE_DEMO_FIXTURES === '1') throw Error('Demo fixtures are forbidden in evaluation mode');
   const resolve = key => path.resolve(base, config[key]);
   const policy = loadPolicy(resolve('policy'));
-  const authentication = loadAuthentication(resolve('auth'));
+  const authConfig = JSON.parse(fs.readFileSync(resolve('auth'), 'utf8'));
+  const authentication = createAuthentication(authConfig);
+  // Validate configured names before starting CDE, touching storage or the adapter.
+  try {
+    for (const principal of authConfig.principals) {
+      // Principal and agent names share the speaker/identity byte budget.
+      validateIdentifiers({ speaker_id: principal.principal_id });
+      if (principal.agent_id !== undefined) validateIdentifiers({ speaker_id: principal.agent_id });
+      for (const context of principal.allowed_contexts ?? []) validateIdentifiers(context);
+    }
+    for (const tool of policy.tools) validateIdentifiers({ tool: tool.id });
+  } catch {
+    throw Object.assign(Error('Configured principal, agent, context or tool identifier exceeds the shared limits or contains invalid Unicode'),
+      { code: 'IDENTIFIER_CONFIGURATION' });
+  }
   // Fail before opening governance storage if the adapter or Python path is invalid.
   fs.accessSync(resolve('python'), fs.constants.X_OK);
   const adapter = createSandboxAdapter(resolve('sandbox'));
