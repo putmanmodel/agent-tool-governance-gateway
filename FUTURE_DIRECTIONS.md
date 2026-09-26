@@ -80,6 +80,38 @@ for uncertain outcomes. External idempotency or transaction identifiers and
 integration with systems supporting transactional execution could help bound
 retries and establish outcomes under those systems' actual guarantees.
 
+### Governed in-flight interruption
+
+RC2 revocation withdraws future authority but does not cancel an execution that
+has already started. A post-RC2 direction is to support stronger execution-lifecycle
+governance when an agent or tool integration exposes the necessary capabilities.
+
+Possible adapter capabilities could include:
+
+- `checkpoint_supported` — execution can stop before the next bounded unit of work.
+- `cancel_supported` — an already-started execution can receive a cancellation request.
+- `rollback_supported` — a completed or partially completed reversible effect can be
+  rolled back.
+- `non_interruptible` — once started, the effect runs to completion.
+
+Kingpin would govern whether interruption, continuation or rollback is authorized.
+The adapter or tool would remain responsible for the physical execution mechanism
+and for truthfully reporting whether cancellation or rollback actually succeeded.
+
+Baseline integrations would retain the current guarantee: Kingpin can revoke future
+authority. Stronger integrations could additionally support mid-execution
+interruption through cancellable or checkpointed execution boundaries.
+
+This capability should be designed against concrete long-running integrations
+rather than assuming that every effect is meaningfully cancellable. A short or
+effectively atomic action may have completed before revocation can be enforced,
+while a long-running job, deployment, browser task or similar operation may expose
+useful cancellation or checkpoint boundaries.
+
+The Agent Governance Test Harness could distinguish unsupported interruption from
+successful interruption and from a claimed interruption capability that fails to
+behave as advertised.
+
 Deployments requiring multiple nodes could explore coordination and fencing;
 long-running external actions would need explicit handling of progress,
 cancellation limits and outcome uncertainty. None of these directions establishes
