@@ -1,0 +1,19 @@
+version: 1
+network_middlewares:
+  binding:
+    middleware: kingpin-binding
+    order: 100
+    on_error: fail_closed
+    config: {}
+    endpoints:
+      include: [host.openshell.internal]
+network_policies:
+  fixture:
+    endpoints:
+      - host: host.openshell.internal
+        port: 18089
+        protocol: rest
+        enforcement: enforce
+        access: full
+    binaries:
+      - path: /usr/bin/bash
