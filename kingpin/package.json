@@ -1,11 +1,55 @@
 {
   "name": "kingpin-runtime",
-  "version": "1.0.0",
-  "private": true,
+  "version": "0.1.0-rc.1",
   "type": "module",
   "exports": {
     ".": "./index.js",
     "./state/sqlite": "./state/sqlite.js",
     "./auth": "./auth/access.js"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "files": [
+    "audit/events.js",
+    "auth/access.js",
+    "authority.js",
+    "execution/model.js",
+    "index.js",
+    "policy/default/policy.json",
+    "policy/loader.js",
+    "policy/validator.js",
+    "review/model.js",
+    "state/interfaces.js",
+    "state/memory.js",
+    "state/migrations/002_lease_revocation.sql",
+    "state/migrations/003_governance_events.sql",
+    "state/migrations/004_human_review.sql",
+    "state/migrations/005_executions.sql",
+    "state/schema.sql",
+    "state/sqlite.js",
+    "README.md",
+    "SDK_CONTRACT.md",
+    "SDK_ERRORS.md",
+    "SDK_EXAMPLE.mjs",
+    "SDK_LIFECYCLE_REPAIR.md",
+    "LICENSE",
+    "NOTICE.md",
+    "auth/README.md",
+    "audit/README.md",
+    "policy/README.md",
+    "review/README.md",
+    "state/README.md"
+  ],
+  "description": "Limited standalone synchronous governance authority SDK with built-in Memory and SQLite stores.",
+  "license": "CC-BY-NC-4.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/putmanmodel/agent-tool-governance-gateway.git",
+    "directory": "kingpin"
+  },
+  "homepage": "https://github.com/putmanmodel/agent-tool-governance-gateway",
+  "bugs": {
+    "url": "https://github.com/putmanmodel/agent-tool-governance-gateway/issues"
   }
 }

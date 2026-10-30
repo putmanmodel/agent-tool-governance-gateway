@@ -1,0 +1,130 @@
+{
+  "name": "kingpin-runtime",
+  "version": "0.1.0-rc.1",
+  "filename": "kingpin-runtime-0.1.0-rc.1.tgz",
+  "sha256": "5bccfc39e61a89050472f30a379bcef4a314d2df022bc401d14ed2bf0cb26bea",
+  "integrity": "sha512-qWCn+isgZGAhVaEUEfo+O1wLm/C5MbsjGeNYcSQq5QwxVnP6Fzrnz5s55+CrjmLGdDoplu+01UVjdtWulacD4g==",
+  "manifest": {
+    "LICENSE": {
+      "sha256": "41003d4a74749c0220e33dd415042164b5a1093ed401f36277234f772d22d3d0",
+      "size": 19347
+    },
+    "NOTICE.md": {
+      "sha256": "cd91107337479c04b8809792434ebfbbe2f7641903e235156de6a376c966f79d",
+      "size": 716
+    },
+    "README.md": {
+      "sha256": "d217c8af3169d3fa8e68089c90bd99f9ba17ce7594dfae458b0a84966d0f9835",
+      "size": 2023
+    },
+    "SDK_CONTRACT.md": {
+      "sha256": "964baedc24ffd64d7ae0281e2473c3c1865dd60166efafc5c1e3226509ae8ba9",
+      "size": 29040
+    },
+    "SDK_ERRORS.md": {
+      "sha256": "6a4dd9dac7d4cf8e33d8b0590ba04238eea44690eca1824b80c50503a2d6ea62",
+      "size": 6505
+    },
+    "SDK_EXAMPLE.mjs": {
+      "sha256": "9f354edd78fa32a61600ac639169190d97b315fdc2571f557df01ea2d2b64a3f",
+      "size": 2929
+    },
+    "SDK_LIFECYCLE_REPAIR.md": {
+      "sha256": "efd9d3b999167936642dd6f54ea7c1d38d1a5a8ccbb1ddbf0010aefbb02a8ff8",
+      "size": 1637
+    },
+    "audit/README.md": {
+      "sha256": "44c7477a46042bbae0ca78b0642baa92ea438ccf537181626b804bc8352092a9",
+      "size": 463
+    },
+    "audit/events.js": {
+      "sha256": "fadf6677089db9f10c8cf17bc44eb1638c6a0b3363c51bc78a92bf2b2f566a7a",
+      "size": 8708
+    },
+    "auth/README.md": {
+      "sha256": "27f6c6da2b962214e75098c4673e733673819fc56b2470f9c8d6590a29d736bf",
+      "size": 564
+    },
+    "auth/access.js": {
+      "sha256": "7068e97689afaeca7b44789389928baaf0dbb4e192728e7b20ff66b0f160ee67",
+      "size": 5539
+    },
+    "authority.js": {
+      "sha256": "9e06606198dfce798c2ec0cb356520a6df18bfdefd8eeee0b91ef78163d72731",
+      "size": 26407
+    },
+    "execution/model.js": {
+      "sha256": "4117e9fb3df09d4c57ca6136e64eb10c12688b840899365c72cbb76d5b24cc4e",
+      "size": 5218
+    },
+    "index.js": {
+      "sha256": "94ba12c747f329adc1605006dfe3fe165f2c7c5c3e65bdc0bb8fed0a3647ab0c",
+      "size": 272
+    },
+    "package.json": {
+      "sha256": "c8c0a39c9bbb3bd79a4a4f5de639ba8cfcc07a12a173bd85039bdee75e2d9e72",
+      "size": 1489
+    },
+    "policy/README.md": {
+      "sha256": "97a486848455c6b9dca9d75d2f8bcb12eaa4d249a53fb84a84b6118d0a757a25",
+      "size": 481
+    },
+    "policy/default/policy.json": {
+      "sha256": "37396530090a2410695b94d1f7cbbcd70463c27a0fe9213493ef0db7b3803417",
+      "size": 961
+    },
+    "policy/loader.js": {
+      "sha256": "96919002045b2d0b4f847c02aeb3e1ae92b91fccdaef7846e65be57f856b6aed",
+      "size": 412
+    },
+    "policy/validator.js": {
+      "sha256": "ce0198cdae1bd3077134a8563b23ec755763978aa414e17aa5593b35dfd4efd6",
+      "size": 3023
+    },
+    "review/README.md": {
+      "sha256": "5bfd14343ef1552024b588accec43264ab258f9648394b49b4c97d0d2aafba1a",
+      "size": 474
+    },
+    "review/model.js": {
+      "sha256": "24fa55bb4d83764180c1e7c3b626f3a7072c0608240e64dcbe17feba410b6517",
+      "size": 7214
+    },
+    "state/README.md": {
+      "sha256": "a87c4a448baca1fc00a48fa37c86885df9af6e916052de14b26d9454f77728df",
+      "size": 569
+    },
+    "state/interfaces.js": {
+      "sha256": "d3f7c66c4dba420461c749b714151af6657fe6d2bfecbe53321cc3244f134e4c",
+      "size": 4046
+    },
+    "state/memory.js": {
+      "sha256": "691bac3e38d830d7f19f00ae8ba36697915f4dddac5e7c8cd04c1e8b8b5c0e66",
+      "size": 7411
+    },
+    "state/migrations/002_lease_revocation.sql": {
+      "sha256": "028ee9e97e4f5ba8017405d95f2579f057f952532111971983754f4a92b12fcc",
+      "size": 1390
+    },
+    "state/migrations/003_governance_events.sql": {
+      "sha256": "3984941a7ed7539ceef12967075869f7c7478e7b65723b5797821db15eb64afb",
+      "size": 589
+    },
+    "state/migrations/004_human_review.sql": {
+      "sha256": "8e9665585273919b8aa3ffdf8c71abf4aac080906306312b89680ada6f1df339",
+      "size": 1177
+    },
+    "state/migrations/005_executions.sql": {
+      "sha256": "ca1d96de22b5e1608a46a8febede99865b2f33b791a87173f812f20401b1c059",
+      "size": 1371
+    },
+    "state/schema.sql": {
+      "sha256": "d14a4a5a1d44edd00a39d0dbde4a689ab3509627e014b9c013a7c967dcb88028",
+      "size": 1259
+    },
+    "state/sqlite.js": {
+      "sha256": "ddf6340e220d09061d600eb17465adc83c5b961d617b13b83332371399d9a4d9",
+      "size": 15809
+    }
+  },
+  "repositoryDocumentationException": "kingpin/README.md provides public-registry guidance; all other sealed package files must match exactly. Additional repository docs are not part of the sealed tarball."
+}

@@ -1,4 +1,4 @@
-import { validateExecution, validateExecutionTransition, UNRESOLVED } from '../../execution/model.js';
+import { validateExecution, validateExecutionTransition, UNRESOLVED } from '../execution/model.js';
 import { validateReview, validateReviewTransition } from '../review/model.js';
 import { canonical } from '../audit/events.js';
 import { validateEvent } from '../audit/events.js';

@@ -1,4 +1,4 @@
-import { validateExecution, validateExecutionTransition } from '../../execution/model.js';
+import { validateExecution, validateExecutionTransition } from '../execution/model.js';
 import { validateReview, validateReviewTransition } from '../review/model.js';
 import { canonical } from '../audit/events.js';
 import { validateEvent } from '../audit/events.js';
@@ -136,7 +136,7 @@ export class SQLiteStateStore {
       this.#db.exec('COMMIT');
       return result;
     } catch (error) {
-      try { this.#db.exec('ROLLBACK'); } catch { this.close(); }
+      try { this.#db.exec('ROLLBACK'); } catch { this.#dispose(); }
       throw error;
     } finally { this.#active = false; }
   }
@@ -266,5 +266,7 @@ export class SQLiteStateStore {
       });
   }
   contextCount() { return this.#transaction(() => this.#db.prepare('SELECT count(*) AS count FROM contexts').get().count); }
-  close() { this.#db?.close(); this.#db = undefined; }
+  // Internal failure cleanup must remain possible while the transaction owns the handle.
+  #dispose() { this.#db?.close(); this.#db = undefined; }
+  close() { check(!this.#active, 'transaction active'); this.#dispose(); }
 }

@@ -1,75 +1,90 @@
-# Kingpin runtime
+# Kingpin limited standalone SDK
 
-A transport-independent Node ES module with memory-default and opt-in SQLite state. It uses only Node built-ins, not Express, the gateway, Python, or CDE implementation code.
+This is the repository landing page for **kingpin-runtime@0.1.0-rc.1**,
+a qualified limited prerelease candidate. Registry publication is a separate step;
+this page does not assert that the version or `next` tag is already available.
 
-```js
-import { KingpinAuthority } from './kingpin/index.js';
+## Install the prerelease
 
-const kingpin = new KingpinAuthority();
-const decision = kingpin.decide(governanceSignal, authorityRequest, evaluationId);
+Once published to the public npm registry, use the exact qualified version:
+
+```sh
+npm install --save-exact kingpin-runtime@0.1.0-rc.1
 ```
 
-`decide(signal, request, evaluation_id)` is the primary evaluation entry point.
-Its existing argument order and `AuthorityDecision` output are unchanged.
-The trusted caller supplies the selected CDE event ID separately from the
-request. CDE supplies requirements, not grants. Keep one runtime instance for
-related requests. Envelopes, leases, revocations and consumed IDs live behind the
-injected state store. The default is a fresh memory store; an explicitly reopened
-SQLite store retains governance state across processes. `clock` may be
-injected in the constructor for deterministic expiry tests.
+To follow the proposed moving prerelease tag instead:
 
-Existing control-plane operations remain `issue(request)`, `revoke(request)`
-and `hasValidLease(request)`. Lease issuance returns the existing opaque handle;
-v0.4 adds `revokeLeaseNonce`, `revokeAllLeases` and detailed `validateLease`
-results. These new persistent semantics are documented in the
-[lease revocation guide](LEASE_REVOCATION.md); no signing changes are included.
-Calls are synchronous; the gateway still serializes CDE evaluation through
-enforcement, together with issuance and revocation, to preserve ordering.
+```sh
+npm install kingpin-runtime@next
+```
 
-- `index.js`: public export.
-- `auth/`: authenticated gateway principals and permissions; see the [auth guide](auth/README.md).
-- `authority.js`: authority decisions and signal validation through state interfaces.
-- `state/`: memory and optional SQLite stores; see the [state guide](state/README.md).
-- `policy/`: validated local JSON tool configuration; see the [policy guide](policy/README.md).
-- `package.json`: explicit ES module boundary, no external dependencies.
-- `../gateway_node/kingpin/authority.js`: compatibility re-export only.
+`next` can move to another prerelease; use the exact version for reproducibility.
+Unqualified `npm install kingpin-runtime` is not the recommended prerelease command.
+Until publication, install the supplied sealed tarball with
+`npm install --offline --ignore-scripts --no-audit --no-fund /absolute/path/kingpin-runtime-0.1.0-rc.1.tgz`.
 
-The [v0.3 contract](../docs/v0.3-behavior-contract.md) and
-[v1 schemas](../schemas/v1/) define the preserved behavior and payload shapes.
-Schemas remain descriptive/test-validated; installing stricter runtime schema
-validation here would change existing acceptance/coercion behavior.
+Use Node.js **24.14.1 on macOS / Darwin arm64**, the qualified environment.
+In a fresh consumer directory after installation:
 
-## Extraction verification
+```sh
+cp node_modules/kingpin-runtime/SDK_EXAMPLE.mjs ./SDK_EXAMPLE.mjs
+node SDK_EXAMPLE.mjs
+```
 
-`tests/fixtures/pre_extraction_authority.json` was captured by
-`tests/fixtures/authority_cases.mjs` from the original gateway-local implementation
-at commit `a7dda4aeac0f3501daa395ca1b0a6d6a9657a7a2`, before moving its source.
-The regression test compares complete decisions and error messages against
-that frozen oracle. It covers Gate 0/1/2, tool floors, evidence, HUMAN REVIEW,
-contraction/recovery, leased allow, scoped revocation and evaluation-ID reuse.
-Random lease tokens are used inside the scenarios but never included in the
-oracle; the clock and evaluation IDs are deterministic. Do not regenerate the
-oracle merely to accept a changed policy.
+The example generates ephemeral authentication tokens and creates `example.sqlite`
+exclusively. Use a fresh directory for each run. It exercises both stores, synthetic
+compatible input, HUMAN REVIEW, leases/revocation and reopen. It executes no tool.
 
-Gateway delegation tests exercise its registered Express handlers with injected
-collaborators. They verify that the original request, CDE signal and selected
-CDE event ID reach Kingpin, and that all five returned outcomes are mechanically
-projected even when a test decision disagrees with local tool/CDE inputs.
-The existing merged demo covers actual HTTP transport.
+## Supported scope
 
-Validation for this extraction: all **27 Node tests** and **7 Python tests**
-passed, including the boundary-schema tests and unchanged 32-event baseline.
-The merged HTTP demo and standalone demo passed; `git diff --check` passed.
-At extraction, the moved `authority.js` was also verified byte-for-byte against
-its original source. The subsequent policy step externalizes static configuration
-while retaining the frozen decision oracle. No substantive authority logic was left behind or required a behavioral
-change. Gateway HTTP validation, CDE orchestration, request serialization, audit
-logging and mechanical enforcement remain transport responsibilities.
+Supported interfaces are the documented authority APIs, policy loading/validation,
+authentication, leases/revocation, HUMAN REVIEW, execution-accounting storage and
+transitions, and synchronous lifecycle through the built-in stores.
 
-The additional [v0.4 governance event stream](audit/README.md) records correlated
-requests, decisions, transitions and gateway enforcement. It uses SQLite schema 5
-when that store is selected; frozen boundary payloads and legacy JSONL are unchanged.
+The initial limited SDK release supports the built-in MemoryStateStore and SQLiteStateStore. Custom store injection remains available as an advanced trusted-host extension mechanism. Independently implemented stores have not been qualified and are outside this release’s support and compatibility guarantee. Constructor acceptance does not establish store conformance.
 
-[Persistent HUMAN REVIEW](review/README.md) adds bounded reviewer resolution and
-one-use agent consumption. Kingpin owns revalidation and the final decision;
-the gateway only authenticates, transports and mechanically enforces the result.
+The public import paths remain `kingpin-runtime`, `kingpin-runtime/state/sqlite`,
+and `kingpin-runtime/auth`. See the exact export and method inventory in the
+[current SDK contract](SDK_CONTRACT.md).
+
+## Consumer documentation
+
+- [SDK contract, compatibility policy and trust boundary](SDK_CONTRACT.md)
+- [Current observed error reference](SDK_ERRORS.md)
+- [SQLite close, rollback and reopen behavior](SDK_LIFECYCLE_REPAIR.md)
+- [Runnable public-import example](SDK_EXAMPLE.mjs)
+- [License](LICENSE) and [source attribution](NOTICE.md)
+- [Draft prerelease notes](../docs/kingpin/PRERELEASE_0.1.0-rc.1.md)
+- [Sealed artifact and repository source relationship](../docs/kingpin/RC_SOURCE.md)
+
+SQLite uses Node's built-in `node:sqlite` DatabaseSync; the qualification runtime
+reported SQLite **3.51.2**. Qualification installed local tarballs in unrelated
+consumer directories. `engines: >=24` does not qualify every Node >=24 environment.
+Linux, Windows, x64, other Node versions, network filesystems and broader
+crash/power-loss recovery are unverified.
+
+Authority is not execution. Approval is not authorization. Execution records are
+accounting facts, not proof of external effects. Lease validation is point-in-time
+authorization evidence, not irrevocable permission. The host establishes trusted
+identity and selects signals/evaluation IDs. Synthetic inputs do not prove live
+CDE or hosted-model behavior.
+
+No initial guarantee covers independently implemented stores, hosted-model
+behavior, production deployment security, distributed exactly-once execution,
+cancellation, external-effect rollback, hostile same-user process isolation,
+a general error-code taxonomy, or arbitrary future upgrade compatibility.
+
+## Artifact status and licensing
+
+SHA-256 of the sealed RC tarball:
+`5bccfc39e61a89050472f30a379bcef4a314d2df022bc401d14ed2bf0cb26bea`.
+
+The repository README provides public-registry guidance without changing the sealed
+artifact. Preparation/status wording inside that artifact records its qualification
+stage; it does not describe current registry availability. The contract, example,
+error reference, lifecycle guide, license and runtime here match the sealed RC.
+Historical qualification records remain unchanged.
+
+License: **CC BY-NC 4.0**. This is not unrestricted commercial software or a claim
+of permissive open-source licensing. This limited prerelease is not a production-
+readiness certification.
