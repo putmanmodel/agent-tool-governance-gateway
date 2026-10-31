@@ -49,6 +49,9 @@ and `kingpin-runtime/auth`. See the exact export and method inventory in the
 
 ## Consumer documentation
 
+New to the SDK? Use **[Set up Kingpin with an AI assistant](../docs/kingpin/AI_ASSISTANT_SETUP.md)**
+for a model-agnostic, contract-bound local demonstration and a copyable setup prompt.
+
 - [SDK contract, compatibility policy and trust boundary](SDK_CONTRACT.md)
 - [Current observed error reference](SDK_ERRORS.md)
 - [SQLite close, rollback and reopen behavior](SDK_LIFECYCLE_REPAIR.md)
