@@ -1,6 +1,6 @@
 {
   "name": "kingpin-runtime",
-  "version": "0.1.0-rc.1",
+  "version": "0.1.0-rc.2",
   "type": "module",
   "exports": {
     ".": "./index.js",
@@ -39,7 +39,8 @@
     "audit/README.md",
     "policy/README.md",
     "review/README.md",
-    "state/README.md"
+    "state/README.md",
+    "AI_ASSISTANT_SETUP.md"
   ],
   "description": "Limited standalone synchronous governance authority SDK with built-in Memory and SQLite stores.",
   "license": "CC-BY-NC-4.0",

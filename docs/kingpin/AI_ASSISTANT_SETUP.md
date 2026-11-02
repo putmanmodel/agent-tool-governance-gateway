@@ -3,7 +3,7 @@
 Use any assistant that can read the SDK documentation. Terminal access is optional:
 an assistant without it can explain the steps while you run commands locally.
 No particular model, provider, agent framework, API key, or hosted service is required.
-This is an additive onboarding guide for **kingpin-runtime@0.1.0-rc.1**, not a new
+This is an additive onboarding guide for **kingpin-runtime@0.1.0-rc.2**, not a new
 integration, runtime capability, or qualification claim.
 
 The goal is a small local demonstration you can inspect: install the exact package,
@@ -31,7 +31,7 @@ boundary; the shipped example is the starting program, not a production template
 
 ```text
 Help me set up a local Kingpin SDK demonstration using only the documented public
-contract for kingpin-runtime@0.1.0-rc.1. Read the supplied contract, error reference,
+contract for kingpin-runtime@0.1.0-rc.2. Read the supplied contract, error reference,
 lifecycle guide and shipped SDK_EXAMPLE.mjs before suggesting code. If you cannot
 read them, ask me for their contents rather than guessing.
 
@@ -39,7 +39,7 @@ First establish:
 - whether you can run local commands or I will run them;
 - my Node version, operating system and architecture;
 - a fresh consumer directory that will not overwrite existing project files;
-- whether the exact version is available from npm or I have the sealed local RC.
+- whether the exact version is available from npm.
 Infer these from the environment when possible. Do not request model-provider keys,
 production credentials, or database contents. Do not install or replace my Node
 runtime automatically.
@@ -51,11 +51,9 @@ Do not call an unverified environment qualified or silently switch package versi
 If my environment differs, explain the mismatch before proceeding with an explicitly
 unverified demonstration.
 
-Use the exact version, not an unpinned or moving tag. Registry publication is not
-assumed. If the exact registry version is unavailable, use the supplied sealed local
-tarball or stop with the missing prerequisite; do not build from a repository or
-substitute another package. Verify a supplied RC tarball against SHA-256:
-5bccfc39e61a89050472f30a379bcef4a314d2df022bc401d14ed2bf0cb26bea
+Use the exact version, not an unpinned or moving tag. If the exact registry version
+is unavailable, stop with the missing prerequisite; do not build from a repository
+or silently substitute another package version.
 
 Install into the fresh consumer directory. Copy SDK_EXAMPLE.mjs from the installed
 package and run it unchanged. It creates example.sqlite exclusively: on a repeat
@@ -108,32 +106,20 @@ CDE/model integration, or that my application is now protected by Kingpin.
 
 ## 3. Install and run the existing example
 
-After the exact version is publicly available:
+Install the exact public prerelease:
 
 ```sh
-npm install --save-exact --ignore-scripts --no-audit --no-fund kingpin-runtime@0.1.0-rc.1
+npm install --save-exact --ignore-scripts --no-audit --no-fund kingpin-runtime@0.1.0-rc.2
 cp node_modules/kingpin-runtime/SDK_EXAMPLE.mjs ./SDK_EXAMPLE.mjs
 node SDK_EXAMPLE.mjs
 ```
 
-Before publication, use the supplied local artifact after checking its digest:
-
-```sh
-shasum -a 256 /absolute/path/kingpin-runtime-0.1.0-rc.1.tgz
-npm install --offline --ignore-scripts --no-audit --no-fund /absolute/path/kingpin-runtime-0.1.0-rc.1.tgz
-cp node_modules/kingpin-runtime/SDK_EXAMPLE.mjs ./SDK_EXAMPLE.mjs
-node SDK_EXAMPLE.mjs
-```
-
-These commands belong in a fresh consumer directory. `/absolute/path/` is a
-placeholder you replace with your artifact location. Do not paste authentication
+These commands belong in a fresh consumer directory. Do not paste authentication
 tokens into the chat. The example generates ephemeral tokens internally.
 
 The example asserts its outcomes and prints a line beginning
-`Memory and SQLite example PASS`. Its trailing local-RC/publication wording records
-the artifact's preparation stage, not current registry availability. A successful
-run demonstrates the example on your environment; it does not repeat the full RC
-qualification. The example exercises both stores; it is not a selectable-backend CLI.
+`Memory and SQLite example PASS`. A successful run demonstrates the example on your
+environment; it does not repeat the full RC qualification. The example exercises both stores; it is not a selectable-backend CLI.
 
 ## 4. Understand what passed
 
@@ -182,7 +168,7 @@ test dispatch.
 | Situation | Response |
 | --- | --- |
 | Assistant cannot read the contract | Supply the actual documents; do not proceed from guessed interfaces |
-| Exact version unavailable | Use a verified supplied RC tarball or wait for publication |
+| Exact version unavailable | Stop with the missing prerequisite; do not substitute another version |
 | SQLite file already exists | Use another fresh directory; preserve the existing file |
 | Runtime/platform differs | Label the run unverified; do not broaden the support claim |
 | Assertion/error differs from the contract | Retain a redacted error and environment details; stop for review |

@@ -34,4 +34,4 @@ for(const backend of ['memory','sqlite']){
   }
  }finally{store.close();}
 }
-console.log('Memory and SQLite example PASS; authorization only; local RC example; publication requires separate approval');
+console.log('Memory and SQLite example PASS; authorization only; limited public prerelease example');
