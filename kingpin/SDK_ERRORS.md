@@ -1,4 +1,4 @@
-# Current SDK error reference — 0.1.0-rc.1
+# Current SDK error reference
 
 These observed exceptions are retained from the installed-artifact baseline on Node 24.14.1, with the qualified SQLite active-close repair applied. This is an observed fixture catalog, not a new taxonomy or an exhaustive list of native platform failures. Ordinary transactional failures roll back; returned denials and review invalidations are not exceptions. See [SDK_CONTRACT.md](SDK_CONTRACT.md) for retry and state effects. Native messages are runtime-specific.
 

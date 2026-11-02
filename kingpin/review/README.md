@@ -1,4 +1,4 @@
-# Current SDK review guide — 0.1.0-rc.1
+# Current SDK review guide
 
 HUMAN REVIEW approval is not authorization. Persist the review ID returned by reviewIdForDecision; resolution and consumption remain separate, bound operations. The host establishes reviewer and agent identity.
 

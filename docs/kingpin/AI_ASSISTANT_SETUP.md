@@ -3,8 +3,8 @@
 Use any assistant that can read the SDK documentation. Terminal access is optional:
 an assistant without it can explain the steps while you run commands locally.
 No particular model, provider, agent framework, API key, or hosted service is required.
-This is an additive onboarding guide for **kingpin-runtime@0.1.0-rc.2**, not a new
-integration, runtime capability, or qualification claim.
+This is an additive onboarding guide for the current limited **kingpin-runtime**
+prerelease, not a new integration, runtime capability, or qualification claim.
 
 The goal is a small local demonstration you can inspect: install the exact package,
 run its existing example, understand the results, and record the responsibilities
@@ -31,7 +31,8 @@ boundary; the shipped example is the starting program, not a production template
 
 ```text
 Help me set up a local Kingpin SDK demonstration using only the documented public
-contract for kingpin-runtime@0.1.0-rc.2. Read the supplied contract, error reference,
+contract for the exact package version specified by the supplied installation
+guidance. Read the supplied contract, error reference,
 lifecycle guide and shipped SDK_EXAMPLE.mjs before suggesting code. If you cannot
 read them, ask me for their contents rather than guessing.
 
@@ -109,7 +110,7 @@ CDE/model integration, or that my application is now protected by Kingpin.
 Install the exact public prerelease:
 
 ```sh
-npm install --save-exact --ignore-scripts --no-audit --no-fund kingpin-runtime@0.1.0-rc.2
+npm install --save-exact --ignore-scripts --no-audit --no-fund kingpin-runtime@0.1.0-rc.3
 cp node_modules/kingpin-runtime/SDK_EXAMPLE.mjs ./SDK_EXAMPLE.mjs
 node SDK_EXAMPLE.mjs
 ```

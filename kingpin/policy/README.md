@@ -1,4 +1,4 @@
-# Current SDK policy guide — 0.1.0-rc.1
+# Current SDK policy guide
 
 Use loadPolicy and validatePolicy from `kingpin-runtime`. Default policy resources resolve inside the installed package. Custom policy loading, exact fields and validation behavior are defined in the current contract.
 

@@ -1,18 +1,18 @@
 # Kingpin limited standalone SDK
 
-This is the package landing page for **kingpin-runtime@0.1.0-rc.2**,
-a limited standalone Kingpin prerelease distributed through the public npm registry.
-Use the exact version for reproducible installation.
+This is the package landing page for the current limited standalone Kingpin prerelease,
+distributed through the public npm registry. Use the exact version for reproducible
+installation.
 
 ## Install the prerelease
 
 Install the exact prerelease version:
 
 ```sh
-npm install --save-exact kingpin-runtime@0.1.0-rc.2
+npm install --save-exact kingpin-runtime@0.1.0-rc.3
 ```
 
-To follow the proposed moving prerelease tag instead:
+To follow the moving prerelease tag instead:
 
 ```sh
 npm install kingpin-runtime@next
@@ -78,8 +78,8 @@ a general error-code taxonomy, or arbitrary future upgrade compatibility.
 
 ## Artifact status and licensing
 
-Release checksums and qualification provenance are published with the corresponding
-GitHub prerelease rather than embedded inside the package being checksummed.
+For release checksums and qualification provenance, see the corresponding GitHub
+prerelease when published; they are not embedded inside the package being checksummed.
 
 License: **CC BY-NC 4.0**. This is not unrestricted commercial software or a claim
 of permissive open-source licensing. This limited prerelease is not a production-

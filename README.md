@@ -1,7 +1,7 @@
 # CDE + Kingpin — Runtime Governance Demo
 
 For the limited standalone SDK, start at the **[Kingpin SDK landing page](kingpin/README.md)**
-for the qualified `0.1.0-rc.1` contract, supported stores, prerelease installation
+for the current qualified contract, supported stores, prerelease installation
 guidance and limitations. The gateway demo below is a separate integration context.
 
 `tool request → CDE evaluates deviation → gate assignment → Kingpin evaluates authority → gateway enforces`

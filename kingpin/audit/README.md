@@ -1,4 +1,4 @@
-# Current SDK audit guide — 0.1.0-rc.1
+# Current SDK audit guide
 
 Audit records are committed governance/accounting facts, not proof that an external tool effect occurred. Use documented authority recording/query methods or trusted built-in transaction repositories.
 

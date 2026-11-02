@@ -1,4 +1,4 @@
-# Current SDK auth guide — 0.1.0-rc.1
+# Current SDK auth guide
 
 Authentication is a trusted-host responsibility. Use createAuthentication and loadAuthentication from `kingpin-runtime/auth`; configuration and principal requirements are defined in the current contract. The runnable package example generates its own tokens and needs no external configuration fixture.
 

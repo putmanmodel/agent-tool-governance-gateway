@@ -1,4 +1,4 @@
-# Current SQLite lifecycle — 0.1.0-rc.1
+# Current SQLite lifecycle
 
 `SQLiteStateStore.close()` now rejects while a transaction is active, before
 closing or clearing its connection, with the existing lifecycle error:

@@ -1,9 +1,9 @@
-# Current limited standalone SDK contract — 0.1.0-rc.1
+# Current limited standalone SDK contract
 
-This contract describes the current release candidate, including the qualified
-SQLite active-close repair. Publication requires a separate decision. Historical
-baseline fixtures and private artifacts remain unchanged in the source project's
-qualification directories; historical defect descriptions do not define this RC.
+This contract describes the current limited prerelease, including the qualified
+SQLite active-close repair. Historical baseline fixtures and private artifacts
+remain unchanged in the source project's qualification directories; historical
+defect descriptions do not define the current package.
 
 ## Supported scope and environment
 
@@ -20,7 +20,8 @@ irrevocable permission.
 Qualified environment: Node.js 24.14.1, macOS / Darwin arm64, MemoryStateStore and
 SQLiteStateStore using Node's built-in `node:sqlite` `DatabaseSync`. The RC runtime
 reports SQLite 3.51.2; the qualification manifest records the measured version.
-Installation is from a local tarball into unrelated consumer directories. The
+Qualification installed local tarballs into unrelated consumer directories. Public
+distribution is through npm; see [README.md](README.md) for the exact current install command. The
 `engines: >=24` admission range does not qualify every Node >=24 environment.
 SQLite uses local files, packaged schema/migrations and an existing parent directory.
 
@@ -32,11 +33,9 @@ taxonomy, or arbitrary future upgrade/downgrade compatibility.
 
 ## Install and run
 
-Given the local tarball, in an unrelated Node project:
-
-```sh
-npm install --offline --ignore-scripts --no-audit --no-fund /absolute/kingpin-runtime-0.1.0-rc.1.tgz
-```
+In an unrelated Node project, install the exact prerelease version shown in
+[README.md](README.md). Use an exact version for reproducibility rather than relying on a moving
+dist-tag.
 
 Use `.mjs` or a project with `"type":"module"`. No running CDE, Python, gateway,
 network service or executor is needed. The shipped [SDK_EXAMPLE.mjs](SDK_EXAMPLE.mjs)
