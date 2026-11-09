@@ -9,7 +9,7 @@ installation.
 Install the exact prerelease version:
 
 ```sh
-npm install --save-exact kingpin-runtime@0.1.0-rc.3
+npm install --save-exact kingpin-runtime@0.1.0-rc.4
 ```
 
 To follow the moving prerelease tag instead:
