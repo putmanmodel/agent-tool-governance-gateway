@@ -117,6 +117,12 @@ export class SQLiteStateStore {
         check(r.execution_id === row.execution_id && r.decision_id === row.decision_id && r.review_id === row.review_id
           && r.resource_hash === row.resource_hash && r.status === row.status, 'invalid persisted execution');
       }
+      const unconsumed = this.#db.prepare(`
+        SELECT 1 FROM executions AS e
+        JOIN reviews AS r ON r.review_id = e.review_id
+        WHERE r.status <> 'consumed' LIMIT 1
+      `).get();
+      check(!unconsumed, 'persisted execution references an unconsumed review');
     }
     if (this.#toolIds) {
       for (const row of this.#db.prepare('SELECT tool FROM capability_revocations').all()) {

@@ -9,6 +9,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { KingpinAuthority, MemoryStateStore, loadPolicy } from '../kingpin/index.js';
 import { SQLiteStateStore } from '../kingpin/state/sqlite.js';
 import { canonical, bindingHash } from '../kingpin/audit/events.js';
+import { validateExecution } from '../kingpin/execution/model.js';
 import { createAuthentication } from '../kingpin/auth/access.js';
 import { pythonExecutable } from '../conformance/runtime.mjs';
 import { request, signal } from '../tests/fixtures/authority_cases.mjs';
@@ -52,7 +53,110 @@ function withLease(a) {
   const req = { ...ready, lease_token: lease.lease_token };
   return { lease, req, id: pending(a, req) };
 }
+function startedExecution(review) {
+  const { request_id, decision_id, evaluation_id, principal_id, agent_id, context, tool_id, review_id } = review;
+  const { session_id, channel_id, scene_id, task_id, arguments_hash } = review.binding;
+  return validateExecution({
+    schema_version: '1.0', execution_id: crypto.randomUUID(), request_id, decision_id, evaluation_id,
+    principal_id, agent_id, context, tool_id, review_id, arguments_hash, request_hash: review.binding_hash,
+    authorization_source: 'review', scope: { session_id, channel_id, scene_id, task_id },
+    resource_hash: bindingHash([tool_id, ready.args]), reconciliation_data: null,
+    status: 'started', started_at: new Date().toISOString(), completed_at: null,
+    result_metadata: null, failure_code: null, reconciliation: null,
+  });
+}
+
+test('sqlite: reopen rejects an execution linked to an approved but unconsumed review', t => {
+  const { a, store, file } = setup(t, 'sqlite');
+  const review = approve(a, pending(a));
+  assert.equal(review.status, 'approved');
+  assert.equal(review.consumed_at, null);
+  const record = startedExecution(review);
+  const audit = a.getEventsForRequest(review.request_id);
+  store.close();
+
+  // Insert just the inconsistent row, leaving the real approval and all constraints intact.
+  const db = new DatabaseSync(file);
+  try {
+    db.prepare('INSERT INTO executions (execution_id, decision_id, review_id, resource_hash, status, record) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(record.execution_id, record.decision_id, record.review_id, record.resource_hash, record.status, JSON.stringify(record));
+  } finally { db.close(); }
+  assert.throws(() => {
+    const reopened = new SQLiteStateStore({ filename: file });
+    t.after(() => reopened.close());
+  }, { message: 'Invalid governance state: persisted execution references an unconsumed review' });
+
+  const reader = new DatabaseSync(file, { readOnly: true });
+  try {
+    const row = reader.prepare('SELECT status, record FROM reviews WHERE review_id = ?').get(review.review_id);
+    assert.equal(row.status, 'approved');
+    assert.deepEqual(JSON.parse(row.record), review);
+    const execution = reader.prepare('SELECT record FROM executions WHERE execution_id = ?').get(record.execution_id);
+    assert.deepEqual(JSON.parse(execution.record), record);
+    const events = reader.prepare('SELECT sequence, record FROM governance_events ORDER BY sequence').all();
+    assert.deepEqual(events.map(e => ({ ...JSON.parse(e.record), sequence: e.sequence })), audit);
+  } finally { reader.close(); }
+});
+
+test('sqlite: consumed reviews reopen with or without a matching execution', t => {
+  const { a, store, file } = setup(t, 'sqlite');
+  const reviews = [];
+  for (let i = 0; i < 2; i++) {
+    const id = pending(a);
+    approve(a, id);
+    assert.equal(a.consumeReview(id, ready, agent).execution_authorized, true);
+    reviews.push(a.getReview(id, reviewer));
+  }
+  const record = startedExecution(reviews[0]);
+  store.transaction(tx => tx.executions.insert(record));
+  store.close();
+
+  const reopened = new SQLiteStateStore({ filename: file });
+  t.after(() => reopened.close());
+  const authority = new KingpinAuthority({ store: reopened });
+  for (const review of reviews) {
+    assert.equal(review.status, 'consumed');
+    assert.deepEqual(authority.getReview(review.review_id, reviewer), review);
+  }
+  assert.deepEqual(reopened.transaction(tx => tx.executions.list()), [record]);
+});
+
 for (const kind of ['memory','sqlite']) {
+  test(`${kind}: execution insertion requires review consumption and permits only one execution per review`, t => {
+    const { a, store } = setup(t, kind);
+    const review = approve(a, pending(a));
+    const record = startedExecution(review);
+    const insert = r => store.transaction(tx => tx.executions.insert(r));
+    const executions = () => store.transaction(tx => tx.executions.list());
+    const events = () => a.getEventsForRequest(review.request_id);
+    const before = events();
+    for (const review_id of [crypto.randomUUID(), review.review_id]) {
+      assert.throws(() => insert({ ...record, review_id }), /review not consumed/);
+      assert.deepEqual(executions(), []);
+      assert.deepEqual(a.getReview(review.review_id, reviewer), review);
+      assert.deepEqual(events(), before);
+    }
+
+    assert.equal(a.consumeReview(review.review_id, ready, agent).execution_authorized, true);
+    const consumed = a.getReview(review.review_id, reviewer);
+    assert.equal(consumed.status, 'consumed');
+    assert.ok(consumed.consumed_at);
+    const after = events();
+    assert.deepEqual(after.slice(before.length).map(e => [e.event_type, e.review_id]), [
+      ['review.execution_authorized', review.review_id], ['review.execution_consumed', review.review_id],
+    ]);
+    insert(record);
+    assert.deepEqual(executions(), [record]);
+    // Finish the first execution so an unresolved-resource conflict cannot mask review reuse.
+    const completed = { ...record, status: 'succeeded', completed_at: new Date().toISOString(), result_metadata: { adapter_reported: true } };
+    store.transaction(tx => tx.executions.save(completed));
+    assert.throws(() => insert({ ...record, execution_id: crypto.randomUUID(), decision_id: crypto.randomUUID() }),
+      kind === 'sqlite' ? /UNIQUE constraint failed: executions.review_id/ : /execution already started/);
+    assert.deepEqual(executions(), [completed]);
+    assert.deepEqual(a.getReview(review.review_id, reviewer), consumed);
+    assert.deepEqual(events(), after);
+  });
+
   test(`${kind}: pending review is bound, permission separated, approved once and consumed once`, t => {
     const { a, store } = setup(t, kind), id = pending(a);
     const before = a.getReview(id, reviewer);
