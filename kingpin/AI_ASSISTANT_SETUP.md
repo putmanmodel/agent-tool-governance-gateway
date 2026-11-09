@@ -110,7 +110,7 @@ CDE/model integration, or that my application is now protected by Kingpin.
 Install the exact public prerelease:
 
 ```sh
-npm install --save-exact --ignore-scripts --no-audit --no-fund kingpin-runtime@0.1.0-rc.3
+npm install --save-exact --ignore-scripts --no-audit --no-fund kingpin-runtime@0.1.0-rc.4
 cp node_modules/kingpin-runtime/SDK_EXAMPLE.mjs ./SDK_EXAMPLE.mjs
 node SDK_EXAMPLE.mjs
 ```
