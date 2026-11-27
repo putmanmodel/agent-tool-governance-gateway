@@ -13,7 +13,7 @@ const auditMigration = readFileSync(new URL('./migrations/003_governance_events.
 const reviewMigration = readFileSync(new URL('./migrations/004_human_review.sql', import.meta.url), 'utf8');
 const executionMigration = readFileSync(new URL('./migrations/005_executions.sql', import.meta.url), 'utf8');
 const nonceForToken = token => crypto.createHash('sha256').update(token).digest('hex');
-const schemaQuery = "SELECT type, name, tbl_name, sql FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%' ORDER BY name";
+const schemaQuery = "SELECT type, name, tbl_name, sql FROM sqlite_schema WHERE name NOT GLOB 'sqlite_*' ORDER BY name";
 const reference = new DatabaseSync(':memory:');
 reference.exec(schema);
 const expectedSchemas = { 1: JSON.stringify(reference.prepare(schemaQuery).all()) };
